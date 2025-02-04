@@ -42,7 +42,7 @@ func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, e
 
 	re, err := regexp.Compile(fmt.Sprintf(".*%s.*", clusterName))
 	if err != nil {
-		err = errors.Wrapf(err, "cluster name %s doesn't compile into a regex")
+		err = errors.Wrapf(err, "cluster name %s doesn't compile into a regex", clusterName)
 		return lbs, err
 	}
 

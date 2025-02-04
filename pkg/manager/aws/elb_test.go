@@ -87,7 +87,7 @@ func TestAWSClusterManager_GetTargets(t *testing.T) {
 			assert.Truef(t, len(targets) >= 1, "load balancer out put fails to meet expectations.")
 
 			for _, t := range targets {
-				fmt.Printf("ID: %s Port: %d State: %s\n", t.Id, t.Port, t.State)
+				fmt.Printf("ID: %s Port: %d State: %s\n", t.ID, t.Port, t.State)
 			}
 
 		})
