@@ -81,23 +81,22 @@ func (i ClusterInfo) ConsolePrint() {
 	for _, lb := range i.LoadBalancers {
 		lb.ConsolePrint("  ")
 
+		fmt.Printf("%sTargets:\n", "    ")
 		// iterate over targets, call consolePrint on each
 		for _, target := range lb.Targets {
-			target.ConsolePrint("    ")
-
+			target.ConsolePrint("      ")
 		}
 	}
-
 }
 
 func (i NodeInfo) ConsolePrint(indent string) {
-	fmt.Printf("%s Name: %s\n", indent, i.Name)
+	fmt.Printf("%s%s\n", indent, i.Name)
 }
 
 func (i LBInfo) ConsolePrint(indent string) {
-	fmt.Printf("%s Name: %s\n", indent, i.Name)
+	fmt.Printf("%s%s\n", indent, i.Name)
 }
 
 func (i LBTargetInfo) ConsolePrint(indent string) {
-	fmt.Printf("%s %s:%d State: %s\n", indent, i.Name, i.Port, i.State)
+	fmt.Printf("%s%s:%d State: %s\n", indent, i.Name, i.Port, i.State)
 }

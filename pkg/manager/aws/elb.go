@@ -4,11 +4,18 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"github.com/pkg/errors"
 	"regexp"
 	"sort"
 )
+
+const API_SEVER_PORT = 6443
+const CLEARTEXT_INGRESS_PORT_INT = 30080
+const TLS_INGRESS_PORT_INT = 30443
+const CLEARTEXT_INGRESS_PORT_EXT = 31080
+const TLS_INGRESS_PORT_EXT = 31443
 
 func (am *AWSClusterManager) GetLB(lbName string) (lbOutput *elasticloadbalancingv2.DescribeLoadBalancersOutput, err error) {
 
@@ -34,19 +41,23 @@ func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, e
 	// DescribeLoadBalancers gives all by default, or filters by name or arn
 	input := &elasticloadbalancingv2.DescribeLoadBalancersInput{}
 
+	// Get all the load balancers
 	output, err := am.ELBClient.DescribeLoadBalancers(am.Context, input)
 	if err != nil {
 		err = errors.Wrapf(err, "failed getting lbs for cluster %s", clusterName)
 		return lbs, err
 	}
 
+	// Regex to match the ones that match the cluster name
 	re, err := regexp.Compile(fmt.Sprintf(".*%s.*", clusterName))
 	if err != nil {
 		err = errors.Wrapf(err, "cluster name %s doesn't compile into a regex", clusterName)
 		return lbs, err
 	}
 
+	// Iterate through the list of load balancers
 	for _, lb := range output.LoadBalancers {
+		// fine the ones that match
 		if re.MatchString(*lb.LoadBalancerName) {
 			lbInfo := manager.LBInfo{
 				Name:    *lb.LoadBalancerName,
@@ -60,10 +71,12 @@ func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, e
 				return lbs, err
 			}
 
+			// iterate over the target groups, also looking for the cluster name  (we use the cluster name in all lb's and tg's, which makes this possible)
 			for _, tg := range tgOutput.TargetGroups {
+				// If they match
 				if re.MatchString(*tg.TargetGroupName) {
 
-					// get targets
+					// get the targets
 					targets, err := am.GetTargets(*tg.TargetGroupName)
 					if err != nil {
 						err = errors.Wrapf(err, "failed getting target %s", *tg.TargetGroupName)
@@ -74,6 +87,7 @@ func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, e
 				}
 			}
 
+			// add it to the pile
 			lbs = append(lbs, lbInfo)
 		}
 	}
@@ -81,15 +95,76 @@ func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, e
 	return lbs, err
 }
 
-//	CreateLB() (err error)
-//	DeleteLB(lbName string) (err error)
-//	UpdateLB() (err error)
+func (am *AWSClusterManager) CreateLB() (err error) {
+	// TODO implement CreateLB()
+	return err
+}
+
+func (am *AWSClusterManager) DeleteLB(lbName string) (err error) {
+	// TODO implement DeleteLB()
+	return err
+}
+
+func (am *AWSClusterManager) UpdateLB() (err error) {
+	// TODO implement UpdataLB()
+	return err
+}
 
 func (am *AWSClusterManager) AddToLB(nodeName string, lbName string) (err error) {
 	return err
 }
 
 func (am *AWSClusterManager) RemoveFromLB(nodeName string, lbName string) (err error) {
+
+	return err
+}
+
+func (am *AWSClusterManager) DeRegisterTarget(nodeName string) (err error) {
+
+	// Get node Info - need the ID
+	nodeInfo, err := am.GetNode(nodeName)
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting info for %s", nodeName)
+	}
+
+	// get target groups
+	tgOutput, err := am.GetTargetGroups("")
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting target groups")
+		return err
+	}
+
+	// iterate through the list of target groups
+	for _, tg := range tgOutput.TargetGroups {
+		// only concern ourselves with target groups that have our cluster name in it
+		if am.ClusterNameRegex.MatchString(*tg.TargetGroupName) {
+			// TODO Remove from apiserver TG if we're in it
+
+			// TODO Remove from internal ingress Cleartext TG
+			// TODO Remove from internal ingress TLS TG
+
+			// TODO Remove from external ingress Cleartext TG
+			// TODO Remove from external ingress TLS TG
+
+			port := int32(TLS_INGRESS_PORT_EXT)
+
+			input := &elasticloadbalancingv2.DeregisterTargetsInput{
+				TargetGroupArn: tg.TargetGroupArn,
+				Targets: []types.TargetDescription{
+					{
+						Id:   aws.String(nodeInfo.ID),
+						Port: &port,
+					},
+				},
+			}
+
+			_, err = am.ELBClient.DeregisterTargets(am.Context, input)
+			if err != nil {
+				err = errors.Wrapf(err, "failed deregistering target %s", nodeName)
+				return err
+			}
+		}
+	}
 
 	return err
 }

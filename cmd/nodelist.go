@@ -5,18 +5,21 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/aws"
-	"github.com/spf13/cobra"
+	"github.com/pkg/errors"
 	"log"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
-// clusterlistCmd represents the clusterlist command
-var clusterlistCmd = &cobra.Command{
-	Use:   "list [cluster-name]",
-	Short: "List information about a K8S Cluster",
+// nodelistCmd represents the nodelist command
+var nodelistCmd = &cobra.Command{
+	Use:   "list <name>",
+	Short: "List Nodes in a cluster",
 	Long: `
-List information about a K8S Cluster
+List nodes in a cluster.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
@@ -39,12 +42,17 @@ List information about a K8S Cluster
 				log.Fatalf("Failed creating cluster manager: %s", err)
 			}
 
-			info, err := cm.DescribeCluster(clusterName)
+			// Get the nodes for the cluster
+			nodes, err := cm.GetNodes(clusterName)
 			if err != nil {
-				log.Fatalf("Failed describing cluster: %s", err)
+				err = errors.Wrapf(err, "failed getting cluster nodes")
+				log.Fatalf("failed listing nodes for cluster %s: %s", clusterName, err)
 			}
 
-			info.ConsolePrint()
+			fmt.Printf("Nodes: (%d)\n", len(nodes))
+			for _, node := range nodes {
+				node.ConsolePrint("")
+			}
 
 		default:
 			log.Fatalf("Cloud provider %q is not yet supported.", cloudProvider)
@@ -53,6 +61,6 @@ List information about a K8S Cluster
 }
 
 func init() {
-	clusterCmd.AddCommand(clusterlistCmd)
+	nodeCmd.AddCommand(nodelistCmd)
 
 }

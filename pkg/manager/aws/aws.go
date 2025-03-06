@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"os"
+	"regexp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,9 +37,10 @@ type AWSClusterManager struct {
 	KubeClient         client.Client
 	FetchedNodesById   map[string]manager.NodeInfo
 	FetchedNodesByName map[string]manager.NodeInfo
+	ClusterNameRegex   *regexp.Regexp
 }
 
-func NewAWSClusterManager(ctx context.Context, profile string) (am *AWSClusterManager, err error) {
+func NewAWSClusterManager(ctx context.Context, clusterName string, profile string) (am *AWSClusterManager, err error) {
 	var cfg aws.Config
 
 	if profile != "" {
@@ -66,7 +68,14 @@ func NewAWSClusterManager(ctx context.Context, profile string) (am *AWSClusterMa
 	ec2Client := ec2.NewFromConfig(cfg)
 	elbClient := elasticloadbalancingv2.NewFromConfig(cfg)
 
+	re, err := regexp.Compile(fmt.Sprintf(".*%s.*", clusterName))
+	if err != nil {
+		err = errors.Wrapf(err, "cluster name %s doesn't compile into a regex", clusterName)
+		return am, err
+	}
+
 	am = &AWSClusterManager{
+		clusterName:        clusterName,
 		cloudProviderName:  "aws",
 		k8sProviderName:    "talos",
 		Config:             cfg,
@@ -77,6 +86,7 @@ func NewAWSClusterManager(ctx context.Context, profile string) (am *AWSClusterMa
 		KubeClient:         kubeClient,
 		FetchedNodesById:   make(map[string]manager.NodeInfo, 0),
 		FetchedNodesByName: make(map[string]manager.NodeInfo, 0),
+		ClusterNameRegex:   re,
 	}
 
 	return am, err
@@ -110,7 +120,6 @@ func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.C
 	info.Nodes = nodes
 
 	// Get the load balancers for the cluster
-
 	lbs, err := am.GetLBs(clusterName)
 	if err != nil {
 		err = errors.Wrapf(err, "failed getting loadbalancers for cluster %s", clusterName)

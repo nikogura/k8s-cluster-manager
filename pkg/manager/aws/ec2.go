@@ -28,9 +28,28 @@ func (am *AWSClusterManager) CreateNode(instanceName string, lbName string) (err
 }
 
 func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
-	// TODO Remove from LB
-	// TODO Remove instance
-	// TODO Temove from DNS
+	// Get Node info
+	nodeInfo, err := am.GetNode(nodeName)
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting node %s", nodeName)
+		return err
+	}
+
+	// TODO Remove from DNS
+
+	// TODO Remove from LB Target Group
+
+	// Remove Instance
+	input := &ec2.TerminateInstancesInput{
+		InstanceIds: []string{nodeInfo.ID},
+	}
+
+	// Terminate Instances
+	_, err = am.Ec2Client.TerminateInstances(am.Context, input)
+	if err != nil {
+		err = errors.Wrapf(err, "failed removing node %s from aws", nodeName)
+		return err
+	}
 
 	return err
 }
@@ -184,27 +203,6 @@ func (am *AWSClusterManager) UpdateNode(nodeName string) (err error) {
 func (am *AWSClusterManager) GlassNode(nodeName string) (err error) {
 	// TODO Delete
 	// TODO Recreate
-	return err
-}
-
-func (am *AWSClusterManager) DeleteK8sNode(nodeName string) (err error) {
-
-	// TODO Remove from Target Group
-	// TODO Remove from DNS
-
-	// Remove Instance
-	input := &ec2.TerminateInstancesInput{
-		InstanceIds: nil,
-		DryRun:      nil,
-	}
-
-	// Terminate Instances
-	_, err = am.Ec2Client.TerminateInstances(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed removing node %s from aws", nodeName)
-		return err
-	}
-
 	return err
 }
 

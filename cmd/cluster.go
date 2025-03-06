@@ -7,9 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var clusterName string
-var cloudProvider string
-
 // clusterCmd represents the cluster command
 var clusterCmd = &cobra.Command{
 	Use:   "cluster",
@@ -23,7 +20,5 @@ Operations on Kubernetes Clusters
 
 func init() {
 	rootCmd.AddCommand(clusterCmd)
-	clusterCmd.PersistentFlags().StringVarP(&clusterName, "clustername", "c", "", "Cluster Name")
-	clusterCmd.PersistentFlags().StringVarP(&cloudProvider, "cloudprovider", "p", "aws", "Cloud provider")
 
 }

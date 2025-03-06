@@ -10,6 +10,7 @@ import (
 var awsClusterManager *AWSClusterManager
 var ctx context.Context
 var awsProfile string
+var clusterName string
 
 func TestMain(m *testing.M) {
 	setUp()
@@ -25,8 +26,9 @@ func setUp() {
 	ctx = context.Background()
 
 	awsProfile = os.Getenv("AWS_PROFILE")
+	clusterName = os.Getenv("CLUSTER_NAME")
 
-	cm, err := NewAWSClusterManager(ctx, awsProfile)
+	cm, err := NewAWSClusterManager(ctx, clusterName, awsProfile)
 	if err != nil {
 		log.Fatalf("Couldn't create aws cluster manager: %s", err)
 	}
