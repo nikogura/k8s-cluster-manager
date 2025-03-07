@@ -6,50 +6,80 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager/cloudflare"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager/talos"
 	"github.com/pkg/errors"
 	"sort"
 )
 
-func (am *AWSClusterManager) CreateNode(instanceName string, lbName string) (err error) {
+func (am *AWSClusterManager) CreateNode(nodeName string) (err error) {
 	// Create Instance
-	input := &ec2.RunInstancesInput{}
+	fmt.Printf("TODO: Creating Node\n")
+	//input := &ec2.RunInstancesInput{}
+	//
+	//_, err = am.Ec2Client.RunInstances(am.Context, input)
+	//if err != nil {
+	//	err = errors.Wrapf(err, "failed running instance %s", instanceName)
+	//	return err
+	//}
 
-	_, err = am.Ec2Client.RunInstances(am.Context, input)
+	err = talos.ApplyConfig(nodeName)
 	if err != nil {
-		err = errors.Wrapf(err, "failed running instance %s", instanceName)
+		err = errors.Wrapf(err, "failed applying machine config to %s", nodeName)
 		return err
 	}
 
-	// TODO Add to Target Group
+	// TODO Add to Target Groups
+	err = am.RegisterNode(nodeName)
+	if err != nil {
+		err = errors.Wrapf(err, "failed registering %s", nodeName)
+		return err
+	}
 
 	// TODO Register DNS
+	err = cloudflare.RegisterNode(nodeName)
+	if err != nil {
+		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
+		return err
+	}
 
 	return err
 }
 
 func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	// Get Node info
-	nodeInfo, err := am.GetNode(nodeName)
+	fmt.Printf("Getting node info\n")
+	//nodeInfo, err := am.GetNode(nodeName)
+	//if err != nil {
+	//	err = errors.Wrapf(err, "failed getting node %s", nodeName)
+	//	return err
+	//}
+
+	err = cloudflare.DeRegisterNode(nodeName)
 	if err != nil {
-		err = errors.Wrapf(err, "failed getting node %s", nodeName)
+		err = errors.Wrapf(err, "failed deregistering dns for %s", nodeName)
 		return err
 	}
-
-	// TODO Remove from DNS
 
 	// TODO Remove from LB Target Group
-
-	// Remove Instance
-	input := &ec2.TerminateInstancesInput{
-		InstanceIds: []string{nodeInfo.ID},
-	}
-
-	// Terminate Instances
-	_, err = am.Ec2Client.TerminateInstances(am.Context, input)
+	err = am.DeRegisterNode(nodeName)
 	if err != nil {
-		err = errors.Wrapf(err, "failed removing node %s from aws", nodeName)
+		err = errors.Wrapf(err, "failed deregistering node %s", nodeName)
 		return err
 	}
+
+	fmt.Printf("TODO: Removing node from EC2\n")
+	//// Remove Instance
+	//input := &ec2.TerminateInstancesInput{
+	//	InstanceIds: []string{nodeInfo.ID},
+	//}
+	//
+	//// Terminate Instances
+	//_, err = am.Ec2Client.TerminateInstances(am.Context, input)
+	//if err != nil {
+	//	err = errors.Wrapf(err, "failed removing node %s from aws", nodeName)
+	//	return err
+	//}
 
 	return err
 }

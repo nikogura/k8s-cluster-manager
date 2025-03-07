@@ -33,6 +33,6 @@ func Execute() {
 }
 
 func init() {
-	clusterCmd.PersistentFlags().StringVarP(&clusterName, "clustername", "c", "", "Cluster Name")
-	clusterCmd.PersistentFlags().StringVarP(&cloudProvider, "cloudprovider", "p", "aws", "Cloud provider")
+	rootCmd.PersistentFlags().StringVarP(&clusterName, "clustername", "c", "", "Cluster Name")
+	rootCmd.PersistentFlags().StringVarP(&cloudProvider, "cloudprovider", "p", "aws", "Cloud provider")
 }

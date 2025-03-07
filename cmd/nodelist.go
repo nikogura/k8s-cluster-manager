@@ -16,7 +16,7 @@ import (
 
 // nodelistCmd represents the nodelist command
 var nodelistCmd = &cobra.Command{
-	Use:   "list <name>",
+	Use:   "list <cluster name>",
 	Short: "List Nodes in a cluster",
 	Long: `
 List nodes in a cluster.

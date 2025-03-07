@@ -4,33 +4,54 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-
+	"context"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager/aws"
 	"github.com/spf13/cobra"
+	"log"
+	"os"
 )
 
 // nodedeleteCmd represents the nodedelete command
 var nodedeleteCmd = &cobra.Command{
-	Use:   "delete",
-	Short: "Delete a Kubernetes Node",
+	Use:   "delete <node name>",
+	Short: "Delete a Kubernetes Node from a Cluster",
 	Long: `
-Delete a Kubernetes Node
+Delete a Kubernetes Node from a Cluster.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("nodedelete called")
+		ctx := context.Background()
+
+		if len(args) > 0 {
+			if nodeName == "" {
+				nodeName = args[0]
+			}
+		}
+
+		if clusterName == "" {
+			log.Fatalf("Cannot list without a cluster name")
+		}
+
+		switch cloudProvider {
+		case "aws":
+			profile := os.Getenv("AWS_PROFILE")
+			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile)
+			if err != nil {
+				log.Fatalf("Failed creating cluster manager: %s", err)
+			}
+
+			// Delete Node
+			err = cm.DeleteNode(nodeName)
+			if err != nil {
+				log.Fatalf("error deleting node %s: %s", nodeName, err)
+			}
+
+		default:
+			log.Fatalf("Cloud provider %q is not yet supported.", cloudProvider)
+		}
+
 	},
 }
 
 func init() {
 	nodeCmd.AddCommand(nodedeleteCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// nodedeleteCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// nodedeleteCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

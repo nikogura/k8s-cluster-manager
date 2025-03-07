@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -51,8 +52,8 @@ func TestAWSClusterManager_GetNode(t *testing.T) {
 			"",
 		},
 		{
-			"apiserver-alpha",
-			"apiserver-alpha",
+			fmt.Sprintf("apiserver-%s", clusterName),
+			fmt.Sprintf("apiserver-%s", clusterName),
 		},
 	}
 

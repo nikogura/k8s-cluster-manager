@@ -11,7 +11,7 @@ import (
 	"sort"
 )
 
-const API_SEVER_PORT = 6443
+const API_SERVER_PORT = 6443
 const CLEARTEXT_INGRESS_PORT_INT = 30080
 const TLS_INGRESS_PORT_INT = 30443
 const CLEARTEXT_INGRESS_PORT_EXT = 31080
@@ -110,89 +110,143 @@ func (am *AWSClusterManager) UpdateLB() (err error) {
 	return err
 }
 
-func (am *AWSClusterManager) AddToLB(nodeName string, lbName string) (err error) {
+func (am *AWSClusterManager) DeRegisterNode(nodeName string) (err error) {
+	fmt.Printf("TODO DeregisterNode() Deregistering node from load balancers %s\n", nodeName)
+
+	//// Get node Info - need the ID
+	//nodeInfo, err := am.GetNode(nodeName)
+	//if err != nil {
+	//	err = errors.Wrapf(err, "failed getting info for %s", nodeName)
+	//}
+	//
+	//// get target groups
+	//tgOutput, err := am.GetTargetGroups("")
+	//if err != nil {
+	//	err = errors.Wrapf(err, "failed getting target groups")
+	//	return err
+	//}
+	//
+	//// iterate through the list of target groups
+	//for _, tg := range tgOutput.TargetGroups {
+	//	// only concern ourselves with target groups that have our cluster name in it
+	//	if am.ClusterNameRegex.MatchString(*tg.TargetGroupName) {
+	//
+	//		// Remove from apiserver TG if we're in it
+	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, API_SERVER_PORT)
+	//		if err != nil {
+	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, CLEARTEXT_INGRESS_PORT_INT)
+	//			return err
+	//		}
+	//
+	//		// Remove from internal ingress Cleartext TG
+	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, CLEARTEXT_INGRESS_PORT_INT)
+	//		if err != nil {
+	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, CLEARTEXT_INGRESS_PORT_INT)
+	//			return err
+	//		}
+	//
+	//		// Remove from internal ingress TLS TG
+	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, TLS_INGRESS_PORT_INT)
+	//		if err != nil {
+	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, TLS_INGRESS_PORT_INT)
+	//			return err
+	//		}
+	//
+	//		// Remove from external ingress Cleartext TG
+	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, CLEARTEXT_INGRESS_PORT_EXT)
+	//		if err != nil {
+	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, CLEARTEXT_INGRESS_PORT_EXT)
+	//			return err
+	//		}
+	//
+	//		// Remove from external ingress TLS TG
+	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, TLS_INGRESS_PORT_EXT)
+	//		if err != nil {
+	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, TLS_INGRESS_PORT_EXT)
+	//			return err
+	//		}
+	//
+	//		// TODO Remove from Kafka TG's
+	//		fmt.Printf("TODO: Remove from Kafka Target Groups\n")
+	//
+	//	}
+	//}
+
 	return err
 }
 
-func (am *AWSClusterManager) RemoveFromLB(nodeName string, lbName string) (err error) {
+func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port int) (err error) {
+	p := int32(port)
 
-	return err
-}
-
-func (am *AWSClusterManager) DeRegisterTarget(nodeName string) (err error) {
-
-	// Get node Info - need the ID
-	nodeInfo, err := am.GetNode(nodeName)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting info for %s", nodeName)
+	input := &elasticloadbalancingv2.DeregisterTargetsInput{
+		TargetGroupArn: aws.String(tgARN),
+		Targets: []types.TargetDescription{
+			{
+				Id:   aws.String(nodeID),
+				Port: &p,
+			},
+		},
 	}
 
-	// get target groups
-	tgOutput, err := am.GetTargetGroups("")
+	_, err = am.ELBClient.DeregisterTargets(am.Context, input)
 	if err != nil {
-		err = errors.Wrapf(err, "failed getting target groups")
+		err = errors.Wrapf(err, "failed deregistering target ID %s", nodeID)
 		return err
 	}
 
-	// iterate through the list of target groups
-	for _, tg := range tgOutput.TargetGroups {
-		// only concern ourselves with target groups that have our cluster name in it
-		if am.ClusterNameRegex.MatchString(*tg.TargetGroupName) {
-			// TODO Remove from apiserver TG if we're in it
-
-			// TODO Remove from internal ingress Cleartext TG
-			// TODO Remove from internal ingress TLS TG
-
-			// TODO Remove from external ingress Cleartext TG
-			// TODO Remove from external ingress TLS TG
-
-			port := int32(TLS_INGRESS_PORT_EXT)
-
-			input := &elasticloadbalancingv2.DeregisterTargetsInput{
-				TargetGroupArn: tg.TargetGroupArn,
-				Targets: []types.TargetDescription{
-					{
-						Id:   aws.String(nodeInfo.ID),
-						Port: &port,
-					},
-				},
-			}
-
-			_, err = am.ELBClient.DeregisterTargets(am.Context, input)
-			if err != nil {
-				err = errors.Wrapf(err, "failed deregistering target %s", nodeName)
-				return err
-			}
-		}
-	}
-
 	return err
 }
 
-func (am *AWSClusterManager) RegisterTarget(instanceName string, lbName string) (err error) {
+func (am *AWSClusterManager) RegisterNode(nodeName string) (err error) {
+	fmt.Printf("Registering Node %s\n", nodeName)
 
 	re := regexp.MustCompile(`.*worker.*`)
-	if !re.MatchString(instanceName) {
+	if !re.MatchString(nodeName) {
 		// TODO Add to apiserver TG
+		fmt.Printf("TODO: RegisterTarget()  Add to apiserver TG\n")
 	}
 
 	// TODO find TG ARN
+	fmt.Printf("TODO: RegisterTarget()  find TG arn\n")
 
-	// TODO Add to internal ingress TG
-	// TODO Add to external ingress TG
+	// TODO Add to internal ingress cleartext TG
+	fmt.Printf("TODO: RegisterTarget() add to internal ingress cleartext TG \n")
 
-	elbinput := &elasticloadbalancingv2.RegisterTargetsInput{
-		TargetGroupArn: nil,
-		Targets:        nil, // []TargetDescription
-	}
+	// TODO Add to internal ingress TLS TG
+	fmt.Printf("TODO: RegisterTarget() add to internal ingress TLS TG \n")
 
-	_, err = am.ELBClient.RegisterTargets(am.Context, elbinput)
-	if err != nil {
-		err = errors.Wrapf(err, "failed registering target %s to lb %s", instanceName, lbName)
-	}
+	// TODO Add to external ingress cleartext TG
+	fmt.Printf("TODO: RegisterTarget() add to external ingress cleartext TG \n")
+
+	// TODO Add to external ingress TLS TG
+	fmt.Printf("TODO: RegisterTarget() add to external ingress TLS TG \n")
+
+	// TODO Add to Kafka TG
+	fmt.Printf("TODO: RegisterTarget() add to Kafka TG \n")
 
 	return err
 
+}
+
+func (am *AWSClusterManager) RegisterTarget(tgARN string, nodeID string, port int) (err error) {
+	p := int32(port)
+
+	input := &elasticloadbalancingv2.RegisterTargetsInput{
+		TargetGroupArn: aws.String(tgARN),
+		Targets: []types.TargetDescription{
+			{
+				Id:   aws.String(nodeID),
+				Port: &p,
+			},
+		},
+	}
+
+	_, err = am.ELBClient.RegisterTargets(am.Context, input)
+	if err != nil {
+		err = errors.Wrapf(err, "failed registering target ID %s", nodeID)
+		return err
+	}
+	return err
 }
 
 func (am *AWSClusterManager) GetTargetGroups(tgName string) (tgOutput *elasticloadbalancingv2.DescribeTargetGroupsOutput, err error) {
