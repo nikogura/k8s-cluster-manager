@@ -30,15 +30,8 @@ type K8sClusterManager interface {
 	GetNode(nodeName string) (nodeInfo NodeInfo, err error) // Retrieve Node info
 	GetNodes(nodeName string) (nodes []NodeInfo, err error) // Retrieve Node info
 	UpdateNode(nodeName string) (err error)                 // Update Node.
-	GlassNode(nodeName string) (err error)                  // Remove Node and recreate it.
 	DescribeNode(nodeName string) (info NodeInfo, err error)
 	DescribeCluster(clusterName string) (info ClusterInfo, err error)
-	//	GetLB(lbName string) (err error)
-	//	CreateLB() (err error)
-	//	DeleteLB(lbName string) (err error)
-	//	UpdateLB() (err error)
-	//	AddToLB(nodeName string, lbName string) (err error)
-	//	RemoveFromLB(nodeName string, lbName string) (err error)
 }
 
 type ClusterInfo struct {

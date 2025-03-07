@@ -29,14 +29,12 @@ func (am *AWSClusterManager) CreateNode(nodeName string) (err error) {
 		return err
 	}
 
-	// TODO Add to Target Groups
 	err = am.RegisterNode(nodeName)
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering %s", nodeName)
 		return err
 	}
 
-	// TODO Register DNS
 	err = cloudflare.RegisterNode(nodeName)
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
@@ -61,7 +59,6 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	// TODO Remove from LB Target Group
 	err = am.DeRegisterNode(nodeName)
 	if err != nil {
 		err = errors.Wrapf(err, "failed deregistering node %s", nodeName)
@@ -224,18 +221,15 @@ func (am *AWSClusterManager) GetNodes(clusterName string) (nodeInfo []manager.No
 }
 
 func (am *AWSClusterManager) UpdateNode(nodeName string) (err error) {
+	// Unsure what we'd be updating.
 	// TODO Update LB
 	// TODO Update Instance
 	// TODO Update DNS
 	return err
 }
 
-func (am *AWSClusterManager) GlassNode(nodeName string) (err error) {
-	// TODO Delete
-	// TODO Recreate
-	return err
-}
-
 func (am *AWSClusterManager) DescribeNode(nodeName string) (info manager.NodeInfo, err error) {
+	// May be unnecessary?
+
 	return info, err
 }
