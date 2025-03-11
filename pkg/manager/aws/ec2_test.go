@@ -52,8 +52,8 @@ func TestAWSClusterManager_GetNode(t *testing.T) {
 			"",
 		},
 		{
-			fmt.Sprintf("apiserver-%s", clusterName),
-			fmt.Sprintf("apiserver-%s", clusterName),
+			fmt.Sprintf("%s-apiserver", clusterName),
+			fmt.Sprintf("%s-apiserver", clusterName),
 		},
 	}
 

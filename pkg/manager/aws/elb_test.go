@@ -16,8 +16,8 @@ func TestAWSClusterManager_GetLB(t *testing.T) {
 			"",
 		},
 		{
-			fmt.Sprintf("apiserver-%s", clusterName),
-			fmt.Sprintf("apiserver-%s", clusterName),
+			fmt.Sprintf("%s-apiserver", clusterName),
+			fmt.Sprintf("%s-apiserver", clusterName),
 		},
 	}
 
@@ -44,8 +44,8 @@ func TestAWSClusterManager_GetTargetGroups(t *testing.T) {
 			"",
 		},
 		{
-			fmt.Sprintf("apiserver-%s-6443", clusterName),
-			fmt.Sprintf("apiserver-%s-6443", clusterName),
+			fmt.Sprintf("%s-apiserver-6443", clusterName),
+			fmt.Sprintf("%s-apiserver-6443", clusterName),
 		},
 	}
 
@@ -53,7 +53,7 @@ func TestAWSClusterManager_GetTargetGroups(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			out, err := awsClusterManager.GetTargetGroups(tc.tgname)
 			if err != nil {
-				t.Errorf("failed getting aws load balancer %s: %s", tc.name, err)
+				t.Errorf("failed getting aws target group %s: %s", tc.name, err)
 			}
 
 			assert.Truef(t, len(out.TargetGroups) >= 1, "load balancer out put fails to meet expectations.")
@@ -73,8 +73,8 @@ func TestAWSClusterManager_GetTargets(t *testing.T) {
 		//	"",
 		//},
 		{
-			fmt.Sprintf("apiserver-%s-6443", clusterName),
-			fmt.Sprintf("apiserver-%s-6443", clusterName),
+			fmt.Sprintf("%s-apiserver-6443", clusterName),
+			fmt.Sprintf("%s-apiserver-6443", clusterName),
 		},
 	}
 
@@ -90,7 +90,7 @@ func TestAWSClusterManager_GetTargets(t *testing.T) {
 				fmt.Printf("ID: %s Port: %d State: %s\n", t.ID, t.Port, t.State)
 			}
 
-			assert.Truef(t, len(targets) >= 1, "load balancer out put fails to meet expectations.")
+			assert.Truef(t, len(targets) >= 1, "No targets found for load balancer %s.", tc.tgname)
 
 		})
 	}
