@@ -51,17 +51,28 @@ func (am *AWSClusterManager) CreateNode(nodeName string) (err error) {
 	imageID := "ami-0036331a6d5058948"
 	subnetID := ""
 	securityGroupID := []string{}
-	//instanceType := ""
+	instanceType := types.InstanceTypeR52xlarge
+	tags := []types.TagSpecification{
+		{
+			ResourceType: types.ResourceTypeInstance,
+			Tags: []types.Tag{
+				{
+					Key:   aws.String("Name"),
+					Value: aws.String(nodeName),
+				},
+			},
+		},
+	}
 
 	input := &ec2.RunInstancesInput{
 		MaxCount:          aws.Int32(1),
 		MinCount:          aws.Int32(1),
 		ImageId:           aws.String(imageID),  // aws.String()
-		TagSpecifications: nil,                  //  []types.TagSpecification
+		TagSpecifications: tags,                 //  []types.TagSpecification
 		SecurityGroupIds:  securityGroupID,      // []string
 		SubnetId:          aws.String(subnetID), // aws.String()
 		Placement:         nil,                  // *types.Placement
-		InstanceType:      "",                   // types.InstanceType
+		InstanceType:      instanceType,         // types.InstanceType
 
 		BlockDeviceMappings: nil, // []types.BlockDeviceMapping
 
