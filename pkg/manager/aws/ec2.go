@@ -15,13 +15,64 @@ import (
 func (am *AWSClusterManager) CreateNode(nodeName string) (err error) {
 	// Create Instance
 	fmt.Printf("TODO: Creating Node\n")
-	//input := &ec2.RunInstancesInput{}
-	//
-	//_, err = am.Ec2Client.RunInstances(am.Context, input)
-	//if err != nil {
-	//	err = errors.Wrapf(err, "failed running instance %s", instanceName)
-	//	return err
-	//}
+
+	// TODO need to differentiate between CP and Worker Nodes
+
+	/*
+				resource "aws_instance" "worker_instance" {
+			  ami                     = var.talos_ami_id
+			  instance_type           = var.instance_type
+			  subnet_id               = var.subnet_id
+			  placement_group         = var.group_nodes_together ? var.cluster_name : null
+			  vpc_security_group_ids  = var.node_security_group_ids
+
+			  root_block_device {
+			    volume_size = var.node_volume_size_gb
+			    volume_type = var.node_volume_type
+
+			  }
+
+			  tags = {
+			    Name                            = var.node_name
+			    Cluster                         = var.cluster_name
+			  }
+			}
+
+		Needs:
+			Image ID
+			Security Group IDs
+			Placement Group Name or ID if used
+			AZ name (needed for placement group) probably trumped by groupname/groupid
+
+	*/
+
+	// TODO all of these will need to be input/discovered
+	// Talos 1.7.0 in eu-west-2
+	imageID := "ami-0036331a6d5058948"
+	subnetID := ""
+	securityGroupID := []string{}
+	//instanceType := ""
+
+	input := &ec2.RunInstancesInput{
+		MaxCount:          aws.Int32(1),
+		MinCount:          aws.Int32(1),
+		ImageId:           aws.String(imageID),  // aws.String()
+		TagSpecifications: nil,                  //  []types.TagSpecification
+		SecurityGroupIds:  securityGroupID,      // []string
+		SubnetId:          aws.String(subnetID), // aws.String()
+		Placement:         nil,                  // *types.Placement
+		InstanceType:      "",                   // types.InstanceType
+
+		BlockDeviceMappings: nil, // []types.BlockDeviceMapping
+
+		//SecurityGroups: nil, // []string  Names of security groups.  Probably not needed if we use ID's, and vice versa.
+	}
+
+	_, err = am.Ec2Client.RunInstances(am.Context, input)
+	if err != nil {
+		err = errors.Wrapf(err, "failed running instance %s", nodeName)
+		return err
+	}
 
 	err = talos.ApplyConfig(nodeName)
 	if err != nil {
@@ -86,7 +137,7 @@ func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo
 	// aws ec2 describe-instances --filters Name=tag:Name,Values=alpha*
 	filter := types.Filter{
 		Name:   aws.String("tag:Name"),
-		Values: []string{fmt.Sprintf("%s-", nodeName)},
+		Values: []string{nodeName},
 	}
 
 	input := &ec2.DescribeInstancesInput{

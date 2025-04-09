@@ -78,6 +78,9 @@ func TestAWSClusterManager_GetTargets(t *testing.T) {
 		},
 	}
 
+	// TODO re-enable when we have targets being spun up/down and registered.
+	t.Skip()
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			targets, err := awsClusterManager.GetTargets(tc.tgname)
@@ -103,14 +106,14 @@ func TestTargetGroupName(t *testing.T) {
 		expected string
 	}{
 		{
-			"alpha",
+			"foo",
 			false,
-			"ingress-alpha-clear",
+			"ingress-foo-clear",
 		},
 		{
-			"bravo",
+			"bar",
 			true,
-			"ingress-bravo-tls",
+			"ingress-bar-tls",
 		},
 	}
 
@@ -130,19 +133,19 @@ func TestLoadBalancerName(t *testing.T) {
 		expected string
 	}{
 		{
-			"alpha",
+			"foo",
 			"apiserver",
-			"apiserver-alpha",
+			"apiserver-foo",
 		},
 		{
-			"bravo",
+			"bar",
 			"int",
-			"ingress-bravo",
+			"ingress-bar",
 		},
 		{
-			"charlie",
+			"baz",
 			"ext",
-			"ingress-charlie-ext",
+			"ingress-baz-ext",
 		},
 	}
 
