@@ -8,6 +8,30 @@ import (
 	"testing"
 )
 
+func TestAWSClusterManager_GetLBs(t *testing.T) {
+	testCases := []struct {
+		name string
+	}{
+		{
+			"test",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			lbs, err := awsClusterManager.GetLBs(tc.name)
+			if err != nil {
+				t.Errorf("failed getting load balancers: %s", err)
+			}
+
+			assert.Nil(t, err, "Errors when retrieving load balancers.")
+
+			assert.True(t, len(lbs) > 0, "No load balancers returned")
+
+		})
+	}
+}
+
 func TestAWSClusterManager_GetLB(t *testing.T) {
 	testCases := []struct {
 		name   string

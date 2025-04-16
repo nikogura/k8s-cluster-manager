@@ -91,13 +91,13 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		return err
 	}
 
-	err = am.RegisterNode(&node)
+	err = am.RegisterNode(node)
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering %s", nodeName)
 		return err
 	}
 
-	err = cloudflare.RegisterNode(&node)
+	err = cloudflare.RegisterNode(node)
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
 		return err

@@ -16,6 +16,7 @@ const CLEARTEXT_INGRESS_PORT_INT = 30080
 const TLS_INGRESS_PORT_INT = 30443
 const CLEARTEXT_INGRESS_PORT_EXT = 31080
 const TLS_INGRESS_PORT_EXT = 31443
+const ELB_CLUSTER_TAG = "Cluster"
 
 func (am *AWSClusterManager) GetLB(lbName string) (lbOutput *elasticloadbalancingv2.DescribeLoadBalancersOutput, err error) {
 
@@ -37,6 +38,11 @@ func (am *AWSClusterManager) GetLB(lbName string) (lbOutput *elasticloadbalancin
 }
 
 func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, err error) {
+	/*
+		There is no way to filter LoadBalancers by tag
+		aws elbv2 describe-load-balancers | jq -r '.LoadBalancers[].LoadBalancerArn' | xargs -I {} aws elbv2 describe-tags --resource-arns {} --query "TagDescriptions[?Tags[?Key=='env' &&Value=='dev'] && Tags[?Key=='created_by' &&Value=='xyz']].ResourceArn" --output text
+
+	*/
 
 	// DescribeLoadBalancers gives all by default, or filters by name or arn
 	input := &elasticloadbalancingv2.DescribeLoadBalancersInput{}
@@ -48,47 +54,72 @@ func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, e
 		return lbs, err
 	}
 
-	// Regex to match the ones that match the cluster name
-	re, err := regexp.Compile(fmt.Sprintf(".*%s.*", clusterName))
-	if err != nil {
-		err = errors.Wrapf(err, "cluster name %s doesn't compile into a regex", clusterName)
-		return lbs, err
-	}
-
-	// Iterate through the list of load balancers
+	// Iterate through the list of load balancers, cos you can't filter by tag
 	for _, lb := range output.LoadBalancers {
-		// fine the ones that match
-		if re.MatchString(*lb.LoadBalancerName) {
-			lbInfo := manager.LBInfo{
-				Name:    *lb.LoadBalancerName,
-				Targets: make([]manager.LBTargetInfo, 0),
-			}
+		// Find the ARN
+		arn := *lb.LoadBalancerArn
 
-			// Get Target Groups - have to get 'em all, since there's no filter
-			tgOutput, err := am.GetTargetGroups("")
-			if err != nil {
-				err = errors.Wrapf(err, "failed getting target groups")
-				return lbs, err
-			}
+		// Look for the tags by ARN
+		tagInput := &elasticloadbalancingv2.DescribeTagsInput{
+			ResourceArns: []string{arn},
+		}
 
-			// iterate over the target groups, also looking for the cluster name  (we use the cluster name in all lb's and tg's, which makes this possible)
-			for _, tg := range tgOutput.TargetGroups {
-				// If they match
-				if re.MatchString(*tg.TargetGroupName) {
+		// Describe the tags
+		tagOutput, err := am.ELBClient.DescribeTags(am.Context, tagInput)
+		if err != nil {
+			err = errors.Wrapf(err, "failed fetching ")
+		}
 
-					// get the targets
-					targets, err := am.GetTargets(*tg.TargetGroupName)
+		// Iterate through the cruft and find one that has a tag for ELB_CLUSTER_TAG and a value equal to our cluster name
+		for _, td := range tagOutput.TagDescriptions {
+			for _, tag := range td.Tags {
+				if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == clusterName {
+
+					lbInfo := manager.LBInfo{
+						Name:    *lb.LoadBalancerName,
+						Targets: make([]manager.LBTargetInfo, 0),
+					}
+
+					// Get Target Groups - have to get 'em all once again, since there's no filter
+					tgOutput, err := am.GetTargetGroupsForLB(arn)
 					if err != nil {
-						err = errors.Wrapf(err, "failed getting target %s", *tg.TargetGroupName)
+						err = errors.Wrapf(err, "failed getting target groups")
 						return lbs, err
 					}
 
-					lbInfo.Targets = targets
+					// iterate over the target groups, also looking for the cluster name  (we use the cluster name in all lb's and tg's, which makes this possible)
+					for _, tg := range tgOutput.TargetGroups {
+						tgArn := *tg.TargetGroupArn
+
+						tagInput = &elasticloadbalancingv2.DescribeTagsInput{
+							ResourceArns: []string{tgArn},
+						}
+
+						// Describe the tags on the TG
+						tagOutput, err = am.ELBClient.DescribeTags(am.Context, tagInput)
+						if err != nil {
+							err = errors.Wrapf(err, "failed fetching tags for %s", tgArn)
+							return lbs, err
+						}
+						for _, tag := range td.Tags {
+							if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == clusterName {
+								// get the targets
+								targets, err := am.GetTargets(*tg.TargetGroupName)
+								if err != nil {
+									err = errors.Wrapf(err, "failed getting target %s", *tg.TargetGroupName)
+									return lbs, err
+								}
+
+								lbInfo.Targets = targets
+
+							}
+						}
+					}
+
+					// add it to the pile
+					lbs = append(lbs, lbInfo)
 				}
 			}
-
-			// add it to the pile
-			lbs = append(lbs, lbInfo)
 		}
 	}
 
@@ -221,8 +252,14 @@ func (am *AWSClusterManager) RegisterNode(config manager.ClusterNode) (err error
 	// TODO Add to external ingress TLS TG
 	fmt.Printf("TODO: RegisterTarget() add to external ingress TLS TG \n")
 
-	// TODO Add to Kafka TG
+	// TODO Add to Kafka TG - Per Kafka
 	fmt.Printf("TODO: RegisterTarget() add to Kafka TG \n")
+
+	// TODO Add to PG RO TG - Per PG
+	fmt.Printf("TODO: RegisterTarget() add to PG RO TG \n")
+
+	// TODO Add to PG RW TG - Per PG
+	fmt.Printf("TODO: RegisterTarget() add to PG RW TG \n")
 
 	return err
 
@@ -262,6 +299,23 @@ func (am *AWSClusterManager) GetTargetGroups(tgName string) (tgOutput *elasticlo
 	tgOutput, err = am.ELBClient.DescribeTargetGroups(am.Context, input)
 	if err != nil {
 		err = errors.Wrapf(err, "failed getting targetGroup %s", tgName)
+		return tgOutput, err
+	}
+
+	return tgOutput, err
+
+}
+
+func (am *AWSClusterManager) GetTargetGroupsForLB(lbArn string) (tgOutput *elasticloadbalancingv2.DescribeTargetGroupsOutput, err error) {
+	// DescribeTargetGroups gives you all by default unless you give it a name or ARN
+
+	input := &elasticloadbalancingv2.DescribeTargetGroupsInput{
+		LoadBalancerArn: aws.String(lbArn),
+	}
+
+	tgOutput, err = am.ELBClient.DescribeTargetGroups(am.Context, input)
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting targetGroup for lb %s", lbArn)
 		return tgOutput, err
 	}
 

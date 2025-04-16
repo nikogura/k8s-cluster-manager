@@ -7,6 +7,6 @@ import (
 
 // TODO  Talos Machine Config Apply
 func ApplyConfig(config manager.ClusterNode) (err error) {
-	fmt.Printf("TODO: talos.ApplyConfig() Applying config to %s\n", config.Name)
+	fmt.Printf("TODO: talos.ApplyConfig() Applying config to %s\n", config.Name())
 	return err
 }
