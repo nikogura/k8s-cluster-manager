@@ -11,6 +11,7 @@ import (
 
 var clusterName string
 var cloudProvider string
+var configFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -35,4 +36,5 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&clusterName, "clustername", "c", "", "Cluster Name")
 	rootCmd.PersistentFlags().StringVarP(&cloudProvider, "cloudprovider", "p", "aws", "Cloud provider")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "", "", "Path to config file")
 }

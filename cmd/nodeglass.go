@@ -47,8 +47,14 @@ Convenience wrapper that calls Delete() and then Create().
 				log.Fatalf("error deleting node %s: %s", nodeName, err)
 			}
 
+			// Load Config
+			nodeConfig, err := aws.LoadAWSNodeConfigFromFile(configFile)
+			if err != nil {
+				log.Fatalf("Failed loading config file %s: %s", configFile, err)
+			}
+
 			// Create Node
-			err = cm.CreateNode(nodeName)
+			err = cm.CreateNode(nodeName, nodeRole, nodeConfig)
 			if err != nil {
 				log.Fatalf("error creating node %s: %s", nodeName, err)
 			}

@@ -93,3 +93,9 @@ func (i LBInfo) ConsolePrint(indent string) {
 func (i LBTargetInfo) ConsolePrint(indent string) {
 	fmt.Printf("%s%s:%d State: %s\n", indent, i.Name, i.Port, i.State)
 }
+
+type ClusterNode interface {
+	Name() (nodeName string) // Name of the node
+	Role() (role string)     // Role (cp | worker) of the node
+	IP() (ip string)         // IP address of the node
+}

@@ -12,46 +12,18 @@ import (
 	"sort"
 )
 
-func (am *AWSClusterManager) CreateNode(nodeName string) (err error) {
+func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig) (err error) {
 	// Create Instance
-	fmt.Printf("TODO: Creating Node\n")
+	fmt.Printf("Creating Node %s with role %s\n", nodeName, nodeRole)
 
-	// TODO need to differentiate between CP and Worker Nodes
+	node := AWSNode{
+		NodeName:  nodeName,
+		IPAddress: "", // we don't know the IP address yet.
+		NodeRole:  nodeRole,
+		Config:    &config,
+	}
 
-	/*
-				resource "aws_instance" "worker_instance" {
-			  ami                     = var.talos_ami_id
-			  instance_type           = var.instance_type
-			  subnet_id               = var.subnet_id
-			  placement_group         = var.group_nodes_together ? var.cluster_name : null
-			  vpc_security_group_ids  = var.node_security_group_ids
-
-			  root_block_device {
-			    volume_size = var.node_volume_size_gb
-			    volume_type = var.node_volume_type
-
-			  }
-
-			  tags = {
-			    Name                            = var.node_name
-			    Cluster                         = var.cluster_name
-			  }
-			}
-
-		Needs:
-			Image ID
-			Security Group IDs
-			Placement Group Name or ID if used
-			AZ name (needed for placement group) probably trumped by groupname/groupid
-
-	*/
-
-	// TODO all of these will need to be input/discovered
-	// Talos 1.7.0 in eu-west-2
-	imageID := "ami-0036331a6d5058948"
-	subnetID := ""
-	securityGroupID := []string{}
-	instanceType := types.InstanceTypeR52xlarge
+	// Set up the "Name" Tag.
 	tags := []types.TagSpecification{
 		{
 			ResourceType: types.ResourceTypeInstance,
@@ -64,40 +36,68 @@ func (am *AWSClusterManager) CreateNode(nodeName string) (err error) {
 		},
 	}
 
+	blockDeviceMappings := []types.BlockDeviceMapping{
+		types.BlockDeviceMapping{
+			DeviceName: aws.String("/dev/xvda"),
+			Ebs: &types.EbsBlockDevice{
+				DeleteOnTermination: aws.Bool(true),
+				//Encrypted:           nil,
+				//Iops:                nil,
+				//KmsKeyId:            nil,
+				//OutpostArn:          nil,
+				//SnapshotId:          nil,
+				//Throughput:          nil,
+				VolumeSize: aws.Int32(int32(config.BlockDeviceGb)),
+				VolumeType: types.VolumeType(config.BlockDeviceType),
+			},
+			NoDevice:    nil,
+			VirtualName: nil,
+		},
+	}
+
 	input := &ec2.RunInstancesInput{
 		MaxCount:          aws.Int32(1),
 		MinCount:          aws.Int32(1),
-		ImageId:           aws.String(imageID),  // aws.String()
-		TagSpecifications: tags,                 //  []types.TagSpecification
-		SecurityGroupIds:  securityGroupID,      // []string
-		SubnetId:          aws.String(subnetID), // aws.String()
-		Placement:         nil,                  // *types.Placement
-		InstanceType:      instanceType,         // types.InstanceType
+		ImageId:           aws.String(config.ImageID),
+		TagSpecifications: tags,
+		SecurityGroupIds:  config.SecurityGroupIDs,
+		SubnetId:          aws.String(config.SubnetID),
+		Placement:         nil, // *types.Placement
+		InstanceType:      types.InstanceType(config.InstanceType),
 
-		BlockDeviceMappings: nil, // []types.BlockDeviceMapping
+		BlockDeviceMappings: blockDeviceMappings,
 
 		//SecurityGroups: nil, // []string  Names of security groups.  Probably not needed if we use ID's, and vice versa.
 	}
 
-	_, err = am.Ec2Client.RunInstances(am.Context, input)
+	if config.PlacementGroupName != "" {
+		input.Placement = &types.Placement{
+			GroupName: aws.String(config.PlacementGroupName),
+		}
+	}
+
+	output, err := am.Ec2Client.RunInstances(am.Context, input)
 	if err != nil {
 		err = errors.Wrapf(err, "failed running instance %s", nodeName)
 		return err
 	}
 
-	err = talos.ApplyConfig(nodeName)
+	//Set IP on node struct
+	node.IPAddress = *output.Instances[0].PrivateIpAddress
+
+	err = talos.ApplyConfig(&node)
 	if err != nil {
 		err = errors.Wrapf(err, "failed applying machine config to %s", nodeName)
 		return err
 	}
 
-	err = am.RegisterNode(nodeName)
+	err = am.RegisterNode(&node)
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering %s", nodeName)
 		return err
 	}
 
-	err = cloudflare.RegisterNode(nodeName)
+	err = cloudflare.RegisterNode(&node)
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
 		return err
@@ -109,11 +109,11 @@ func (am *AWSClusterManager) CreateNode(nodeName string) (err error) {
 func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	// Get Node info
 	fmt.Printf("Getting node info\n")
-	//nodeInfo, err := am.GetNode(nodeName)
-	//if err != nil {
-	//	err = errors.Wrapf(err, "failed getting node %s", nodeName)
-	//	return err
-	//}
+	nodeInfo, err := am.GetNode(nodeName)
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting node %s", nodeName)
+		return err
+	}
 
 	err = cloudflare.DeRegisterNode(nodeName)
 	if err != nil {
@@ -127,18 +127,18 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	fmt.Printf("TODO: Removing node from EC2\n")
-	//// Remove Instance
-	//input := &ec2.TerminateInstancesInput{
-	//	InstanceIds: []string{nodeInfo.ID},
-	//}
-	//
-	//// Terminate Instances
-	//_, err = am.Ec2Client.TerminateInstances(am.Context, input)
-	//if err != nil {
-	//	err = errors.Wrapf(err, "failed removing node %s from aws", nodeName)
-	//	return err
-	//}
+	fmt.Printf("Removing node %s from EC2\n", nodeName)
+	// Remove Instance
+	input := &ec2.TerminateInstancesInput{
+		InstanceIds: []string{nodeInfo.ID},
+	}
+
+	// Terminate Instances
+	_, err = am.Ec2Client.TerminateInstances(am.Context, input)
+	if err != nil {
+		err = errors.Wrapf(err, "failed removing node %s from aws", nodeName)
+		return err
+	}
 
 	return err
 }

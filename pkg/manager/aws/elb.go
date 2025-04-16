@@ -197,11 +197,11 @@ func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port 
 	return err
 }
 
-func (am *AWSClusterManager) RegisterNode(nodeName string) (err error) {
-	fmt.Printf("Registering Node %s\n", nodeName)
+func (am *AWSClusterManager) RegisterNode(config manager.ClusterNode) (err error) {
+	fmt.Printf("Registering Node %s\n", config.Name())
 
 	re := regexp.MustCompile(`.*worker.*`)
-	if !re.MatchString(nodeName) {
+	if !re.MatchString(config.Name()) {
 		// TODO Add to apiserver TG
 		fmt.Printf("TODO: RegisterTarget()  Add to apiserver TG\n")
 	}

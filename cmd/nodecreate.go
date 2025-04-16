@@ -28,6 +28,12 @@ Create a new Kubernetes Node
 			}
 		}
 
+		if len(args) > 1 {
+			if nodeRole == "" {
+				nodeRole = args[1]
+			}
+		}
+
 		if clusterName == "" {
 			log.Fatalf("Cannot list without a cluster name")
 		}
@@ -40,8 +46,14 @@ Create a new Kubernetes Node
 				log.Fatalf("Failed creating cluster manager: %s", err)
 			}
 
+			// Load the config
+			nodeConfig, err := aws.LoadAWSNodeConfigFromFile(configFile)
+			if err != nil {
+				log.Fatalf("Failed loading config file %s: %s", configFile, err)
+			}
+
 			// Create Node
-			err = cm.CreateNode(nodeName)
+			err = cm.CreateNode(nodeName, nodeRole, nodeConfig)
 			if err != nil {
 				log.Fatalf("error deleting node %s: %s", nodeName, err)
 			}

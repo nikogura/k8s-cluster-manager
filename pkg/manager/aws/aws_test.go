@@ -11,6 +11,7 @@ var awsClusterManager *AWSClusterManager
 var ctx context.Context
 var awsProfile string
 var clusterName string
+var tmpDir string
 
 func TestMain(m *testing.M) {
 	setUp()
@@ -25,6 +26,13 @@ func TestMain(m *testing.M) {
 func setUp() {
 	ctx = context.Background()
 
+	tdir, err := os.MkdirTemp("", "k8s-cluster-manager")
+	if err != nil {
+		log.Fatalf("Error creating temp dir: %s", err)
+	}
+
+	tmpDir = tdir
+
 	awsProfile = os.Getenv("AWS_PROFILE")
 	clusterName = os.Getenv("CLUSTER_NAME")
 
@@ -38,4 +46,7 @@ func setUp() {
 }
 
 func tearDown() {
+	if _, err := os.Stat(tmpDir); err == nil {
+		os.RemoveAll(tmpDir)
+	}
 }

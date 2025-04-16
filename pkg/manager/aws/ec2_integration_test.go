@@ -4,7 +4,6 @@ package aws
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -14,7 +13,7 @@ func TestAWSClusterManager_GetNode(t *testing.T) {
 		name string
 	}{
 		{
-			"foo-cp-1",
+			"alpha-cp-1",
 		},
 		//{
 		//	fmt.Sprintf("%s-cp-1", clusterName),
@@ -23,7 +22,7 @@ func TestAWSClusterManager_GetNode(t *testing.T) {
 	}
 
 	// TODO re-enable once we're creating EC2 Instances
-	t.Skip()
+	//t.Skip()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -33,7 +32,6 @@ func TestAWSClusterManager_GetNode(t *testing.T) {
 			}
 
 			fmt.Printf("Node Name: %s\n", out.Name)
-			spew.Dump(out)
 
 			assert.Truef(t, out.Name == tc.name, "retrieved the wrong node")
 

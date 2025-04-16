@@ -1,9 +1,12 @@
 package cloudflare
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
+)
 
 // TODO CRUD of DNS A record
-func RegisterNode(nodeName string) (err error) {
+func RegisterNode(node manager.ClusterNode) (err error) {
 	fmt.Printf("TODO: cloudflare.RegisterNode() Registering DNS for node\n")
 	return err
 }

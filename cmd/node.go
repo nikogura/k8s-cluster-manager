@@ -8,6 +8,7 @@ import (
 )
 
 var nodeName string
+var nodeRole string
 
 // nodeCmd represents the node command
 var nodeCmd = &cobra.Command{
@@ -23,5 +24,6 @@ Operations on Kubernetes Nodes
 func init() {
 	rootCmd.AddCommand(nodeCmd)
 
-	nodeCmd.PersistentFlags().StringVarP(&nodeName, "nodename", "n", "", "Node Name")
+	nodeCmd.PersistentFlags().StringVarP(&nodeName, "name", "n", "", "Node Name")
+	nodeCmd.PersistentFlags().StringVarP(&nodeRole, "role", "r", "", "Node Role")
 }
