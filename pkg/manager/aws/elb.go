@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"github.com/pkg/errors"
-	"regexp"
 	"sort"
 )
 
@@ -231,35 +230,13 @@ func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port 
 func (am *AWSClusterManager) RegisterNode(config manager.ClusterNode) (err error) {
 	fmt.Printf("Registering Node %s\n", config.Name())
 
-	re := regexp.MustCompile(`.*worker.*`)
-	if !re.MatchString(config.Name()) {
-		// TODO Add to apiserver TG
-		fmt.Printf("TODO: RegisterTarget()  Add to apiserver TG\n")
-	}
+	// TODO Differentiate between CP and Worker Nodes
 
-	// TODO find TG ARN
-	fmt.Printf("TODO: RegisterTarget()  find TG arn\n")
+	// TODO Add to APIserver if node is a CP Node
 
-	// TODO Add to internal ingress cleartext TG
-	fmt.Printf("TODO: RegisterTarget() add to internal ingress cleartext TG \n")
+	// TODO Add to TG"s for all CP Nodes if workloads are scheduled on the CP nodes.
 
-	// TODO Add to internal ingress TLS TG
-	fmt.Printf("TODO: RegisterTarget() add to internal ingress TLS TG \n")
-
-	// TODO Add to external ingress cleartext TG
-	fmt.Printf("TODO: RegisterTarget() add to external ingress cleartext TG \n")
-
-	// TODO Add to external ingress TLS TG
-	fmt.Printf("TODO: RegisterTarget() add to external ingress TLS TG \n")
-
-	// TODO Add to Kafka TG - Per Kafka
-	fmt.Printf("TODO: RegisterTarget() add to Kafka TG \n")
-
-	// TODO Add to PG RO TG - Per PG
-	fmt.Printf("TODO: RegisterTarget() add to PG RO TG \n")
-
-	// TODO Add to PG RW TG - Per PG
-	fmt.Printf("TODO: RegisterTarget() add to PG RW TG \n")
+	// TODO Add to all TG's and ports for all LB's for the cluster for workers
 
 	return err
 

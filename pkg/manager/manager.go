@@ -35,10 +35,11 @@ type K8sClusterManager interface {
 }
 
 type ClusterInfo struct {
-	Name          string
-	Provider      string
-	Nodes         []NodeInfo
-	LoadBalancers []LBInfo
+	Name                       string
+	Provider                   string
+	Nodes                      []NodeInfo
+	LoadBalancers              []LBInfo
+	ScheduleWorkloadsOnCPNodes bool // TODO  How do we keep track of this?
 }
 
 type NodeInfo struct {
