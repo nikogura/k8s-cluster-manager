@@ -2,6 +2,9 @@ package manager
 
 import "fmt"
 
+const NODE_ROLE_CP = "cp"
+const NODE_ROLE_WORKER = "worker"
+
 /*
 Needs:
 CRUD of EC2 instance
@@ -48,8 +51,16 @@ type NodeInfo struct {
 }
 
 type LBInfo struct {
-	Name    string
-	Targets []LBTargetInfo
+	Name         string
+	IsApiServer  bool
+	Targets      []LBTargetInfo
+	TargetGroups []LBTargetGroupInfo
+}
+
+type LBTargetGroupInfo struct {
+	Name string
+	ID   string
+	Port int
 }
 
 type LBTargetInfo struct {
@@ -99,4 +110,5 @@ type ClusterNode interface {
 	Name() (nodeName string) // Name of the node
 	Role() (role string)     // Role (cp | worker) of the node
 	IP() (ip string)         // IP address of the node
+	ID() (id string)         // ID of the node
 }

@@ -26,18 +26,19 @@ func init() {
 }
 
 type AWSClusterManager struct {
-	clusterName        string
-	cloudProviderName  string
-	k8sProviderName    string
-	Config             aws.Config
-	Ec2Client          *ec2.Client
-	ELBClient          *elasticloadbalancingv2.Client
-	Context            context.Context
-	Profile            string
-	KubeClient         client.Client
-	FetchedNodesById   map[string]manager.NodeInfo
-	FetchedNodesByName map[string]manager.NodeInfo
-	ClusterNameRegex   *regexp.Regexp
+	clusterName                string
+	cloudProviderName          string
+	k8sProviderName            string
+	scheduleWorkloadsOnCPNodes bool
+	Config                     aws.Config
+	Ec2Client                  *ec2.Client
+	ELBClient                  *elasticloadbalancingv2.Client
+	Context                    context.Context
+	Profile                    string
+	KubeClient                 client.Client
+	FetchedNodesById           map[string]manager.NodeInfo
+	FetchedNodesByName         map[string]manager.NodeInfo
+	ClusterNameRegex           *regexp.Regexp
 }
 
 func NewAWSClusterManager(ctx context.Context, clusterName string, profile string) (am *AWSClusterManager, err error) {
@@ -104,6 +105,10 @@ func (am *AWSClusterManager) K8sProviderName() string {
 	return am.k8sProviderName
 }
 
+func (am *AWSClusterManager) ScheduleWorkloadsOnCPNodes() bool {
+	return am.scheduleWorkloadsOnCPNodes
+}
+
 func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.ClusterInfo, err error) {
 
 	// construct the ClusterInfo struct
@@ -120,7 +125,7 @@ func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.C
 	info.Nodes = nodes
 
 	// Get the load balancers for the cluster
-	lbs, err := am.GetLBs(clusterName)
+	lbs, err := am.GetClusterLBs()
 	if err != nil {
 		err = errors.Wrapf(err, "failed getting loadbalancers for cluster %s", clusterName)
 		return info, err

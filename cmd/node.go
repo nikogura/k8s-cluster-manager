@@ -25,5 +25,5 @@ func init() {
 	rootCmd.AddCommand(nodeCmd)
 
 	nodeCmd.PersistentFlags().StringVarP(&nodeName, "name", "n", "", "Node Name")
-	nodeCmd.PersistentFlags().StringVarP(&nodeRole, "role", "r", "", "Node Role")
+	nodeCmd.PersistentFlags().StringVarP(&nodeRole, "role", "r", "worker", "Node Role")
 }

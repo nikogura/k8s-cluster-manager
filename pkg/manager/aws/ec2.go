@@ -14,7 +14,7 @@ import (
 
 func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig) (err error) {
 	// Create Instance
-	fmt.Printf("Creating Node %s with role %s\n", nodeName, nodeRole)
+	fmt.Printf("Creating Node %s with role %s in cluster %s\n", nodeName, nodeRole, am.ClusterName())
 
 	node := AWSNode{
 		NodeName:  nodeName,
@@ -84,6 +84,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 
 	//Set IP on node struct
 	node.IPAddress = *output.Instances[0].PrivateIpAddress
+	node.NodeID = *output.Instances[0].InstanceId
 
 	err = talos.ApplyConfig(&node)
 	if err != nil {
@@ -121,7 +122,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	err = am.DeRegisterNode(nodeName)
+	err = am.DeRegisterNode(nodeName, nodeInfo.ID)
 	if err != nil {
 		err = errors.Wrapf(err, "failed deregistering node %s", nodeName)
 		return err
@@ -139,6 +140,8 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		err = errors.Wrapf(err, "failed removing node %s from aws", nodeName)
 		return err
 	}
+
+	fmt.Printf("Node Terminated\n")
 
 	return err
 }

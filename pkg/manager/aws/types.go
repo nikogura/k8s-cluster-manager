@@ -21,6 +21,7 @@ type AWSNode struct {
 	NodeName  string         `json:"name"`
 	IPAddress string         `json:"ip_address"`
 	NodeRole  string         `json:"role"`
+	NodeID    string         `json:"id"`
 	Config    *AWSNodeConfig `json:"config"`
 }
 
@@ -34,6 +35,10 @@ func (c AWSNode) Role() (role string) {
 
 func (c AWSNode) IP() (ip string) {
 	return c.IPAddress
+}
+
+func (c AWSNode) ID() (id string) {
+	return c.NodeID
 }
 
 func LoadAWSNodeConfigFromFile(filePath string) (config AWSNodeConfig, err error) {

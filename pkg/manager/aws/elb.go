@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"github.com/pkg/errors"
+	"regexp"
 	"sort"
 )
 
@@ -36,7 +37,7 @@ func (am *AWSClusterManager) GetLB(lbName string) (lbOutput *elasticloadbalancin
 	return lbOutput, err
 }
 
-func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, err error) {
+func (am *AWSClusterManager) GetClusterLBs() (lbs []manager.LBInfo, err error) {
 	/*
 		There is no way to filter LoadBalancers by tag
 		aws elbv2 describe-load-balancers | jq -r '.LoadBalancers[].LoadBalancerArn' | xargs -I {} aws elbv2 describe-tags --resource-arns {} --query "TagDescriptions[?Tags[?Key=='env' &&Value=='dev'] && Tags[?Key=='created_by' &&Value=='xyz']].ResourceArn" --output text
@@ -49,7 +50,7 @@ func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, e
 	// Get all the load balancers
 	output, err := am.ELBClient.DescribeLoadBalancers(am.Context, input)
 	if err != nil {
-		err = errors.Wrapf(err, "failed getting lbs for cluster %s", clusterName)
+		err = errors.Wrapf(err, "failed getting lbs for cluster %s", am.ClusterName())
 		return lbs, err
 	}
 
@@ -69,14 +70,21 @@ func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, e
 			err = errors.Wrapf(err, "failed fetching ")
 		}
 
+		apiserverRegex := regexp.MustCompile(`.*apiserver.*`)
+
 		// Iterate through the cruft and find one that has a tag for ELB_CLUSTER_TAG and a value equal to our cluster name
 		for _, td := range tagOutput.TagDescriptions {
 			for _, tag := range td.Tags {
-				if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == clusterName {
+				if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == am.ClusterName() {
 
 					lbInfo := manager.LBInfo{
-						Name:    *lb.LoadBalancerName,
-						Targets: make([]manager.LBTargetInfo, 0),
+						Name:         *lb.LoadBalancerName,
+						Targets:      make([]manager.LBTargetInfo, 0),
+						TargetGroups: make([]manager.LBTargetGroupInfo, 0),
+					}
+
+					if apiserverRegex.MatchString(*lb.LoadBalancerName) {
+						lbInfo.IsApiServer = true
 					}
 
 					// Get Target Groups - have to get 'em all once again, since there's no filter
@@ -101,7 +109,15 @@ func (am *AWSClusterManager) GetLBs(clusterName string) (lbs []manager.LBInfo, e
 							return lbs, err
 						}
 						for _, tag := range td.Tags {
-							if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == clusterName {
+							if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == am.ClusterName() {
+								// Record the Target Group info
+								tgInfo := manager.LBTargetGroupInfo{
+									Name: *tg.TargetGroupName,
+									ID:   *tg.TargetGroupArn,
+									Port: int(*tg.Port),
+								}
+								lbInfo.TargetGroups = append(lbInfo.TargetGroups, tgInfo)
+
 								// get the targets
 								targets, err := am.GetTargets(*tg.TargetGroupName)
 								if err != nil {
@@ -140,67 +156,28 @@ func (am *AWSClusterManager) UpdateLB() (err error) {
 	return err
 }
 
-func (am *AWSClusterManager) DeRegisterNode(nodeName string) (err error) {
-	fmt.Printf("TODO DeregisterNode() Deregistering node from load balancers %s\n", nodeName)
+func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err error) {
+	fmt.Printf("Deregistering node %s from load balancers in cluster %s \n", nodeName, am.ClusterName())
 
-	//// Get node Info - need the ID
-	//nodeInfo, err := am.GetNode(nodeName)
-	//if err != nil {
-	//	err = errors.Wrapf(err, "failed getting info for %s", nodeName)
-	//}
-	//
-	//// get target groups
-	//tgOutput, err := am.GetTargetGroups("")
-	//if err != nil {
-	//	err = errors.Wrapf(err, "failed getting target groups")
-	//	return err
-	//}
-	//
-	//// iterate through the list of target groups
-	//for _, tg := range tgOutput.TargetGroups {
-	//	// only concern ourselves with target groups that have our cluster name in it
-	//	if am.ClusterNameRegex.MatchString(*tg.TargetGroupName) {
-	//
-	//		// Remove from apiserver TG if we're in it
-	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, API_SERVER_PORT)
-	//		if err != nil {
-	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, CLEARTEXT_INGRESS_PORT_INT)
-	//			return err
-	//		}
-	//
-	//		// Remove from internal ingress Cleartext TG
-	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, CLEARTEXT_INGRESS_PORT_INT)
-	//		if err != nil {
-	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, CLEARTEXT_INGRESS_PORT_INT)
-	//			return err
-	//		}
-	//
-	//		// Remove from internal ingress TLS TG
-	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, TLS_INGRESS_PORT_INT)
-	//		if err != nil {
-	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, TLS_INGRESS_PORT_INT)
-	//			return err
-	//		}
-	//
-	//		// Remove from external ingress Cleartext TG
-	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, CLEARTEXT_INGRESS_PORT_EXT)
-	//		if err != nil {
-	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, CLEARTEXT_INGRESS_PORT_EXT)
-	//			return err
-	//		}
-	//
-	//		// Remove from external ingress TLS TG
-	//		err = am.DeregisterTarget(*tg.TargetGroupArn, nodeInfo.ID, TLS_INGRESS_PORT_EXT)
-	//		if err != nil {
-	//			err = errors.Wrapf(err, "failed deregistering node id %s from tg %s port %d\n", nodeInfo.ID, *tg.TargetGroupArn, TLS_INGRESS_PORT_EXT)
-	//			return err
-	//		}
-	//
-	//		// TODO Remove from Kafka TG's
-	//		fmt.Printf("TODO: Remove from Kafka Target Groups\n")
-	//
-	//	}
-	//}
+	lbs, err := am.GetClusterLBs()
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting cluster LB's")
+		return err
+	}
+
+	// Remove Node from all LB's.  It doesn't appear to generate an error if you try to remove a node from a target group it's not in.
+	for _, lb := range lbs {
+		for _, tg := range lb.TargetGroups {
+			// Register the node in the TargetGroup
+			fmt.Printf("Degistering Node %s with Target Group %s on Port %d\n", nodeName, tg.ID, tg.Port)
+			err = am.DeregisterTarget(tg.ID, nodeID, tg.Port)
+			if err != nil {
+				err = errors.Wrapf(err, "failed deregistering %s on tg %s", nodeName, tg.ID)
+				fmt.Printf("Error deregistering node %s from lb %s in cluster %s: %s\n", nodeName, lb.Name, am.ClusterName(), err)
+				return err
+			}
+		}
+	}
 
 	return err
 }
@@ -227,19 +204,45 @@ func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port 
 	return err
 }
 
-func (am *AWSClusterManager) RegisterNode(config manager.ClusterNode) (err error) {
-	fmt.Printf("Registering Node %s\n", config.Name())
+func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) {
+	fmt.Printf("Registering Node %s\n", node.Name())
 
-	// TODO Differentiate between CP and Worker Nodes
+	lbs, err := am.GetClusterLBs()
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting cluster LB's")
+		return err
+	}
 
-	// TODO Add to APIserver if node is a CP Node
+	// Add to all TG's and ports for all LB's for the cluster for workers
+	for _, lb := range lbs {
+		// If this is a CP node, and we're looking at the  the apiserver LB
+		if node.Role() == manager.NODE_ROLE_CP && lb.IsApiServer {
+			// we'll still loop through the list of tg's, even though there should be only 1
+			for _, tg := range lb.TargetGroups {
+				err = am.RegisterTarget(tg.ID, node.ID(), tg.Port)
+			}
+			continue // move on.  We've handled the apiserver lb
+		}
 
-	// TODO Add to TG"s for all CP Nodes if workloads are scheduled on the CP nodes.
+		// If we don't schedule workloads on CP nodes, move on.
+		if !am.ScheduleWorkloadsOnCPNodes() && node.Role() == manager.NODE_ROLE_CP {
 
-	// TODO Add to all TG's and ports for all LB's for the cluster for workers
+			continue
+		}
+
+		// Else, for every non apiserver lb, register this node as a target.
+		for _, tg := range lb.TargetGroups {
+			// Register the node in the TargetGroup
+			fmt.Printf("Registering Node %s with Target Group %s on Port %d\n", node.ID(), tg.ID, tg.Port)
+			err = am.RegisterTarget(tg.ID, node.ID(), tg.Port)
+			if err != nil {
+				err = errors.Wrapf(err, "failed registering %s on tg %s", node.ID(), tg.ID)
+				return err
+			}
+		}
+	}
 
 	return err
-
 }
 
 func (am *AWSClusterManager) RegisterTarget(tgARN string, nodeID string, port int) (err error) {
