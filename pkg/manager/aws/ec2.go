@@ -181,7 +181,6 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 }
 
 func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo, err error) {
-	// aws ec2 describe-instances --filters Name=tag:Name,Values=alpha*
 	filter := types.Filter{
 		Name:   aws.String("tag:Name"),
 		Values: []string{nodeName},
@@ -281,7 +280,6 @@ func (am *AWSClusterManager) GetNodeById(id string) (nodeInfo manager.NodeInfo, 
 func (am *AWSClusterManager) GetNodes(clusterName string) (nodeInfo []manager.NodeInfo, err error) {
 	nodeInfo = make([]manager.NodeInfo, 0)
 
-	// aws ec2 describe-instances --filters Name=tag:Name,Values=alpha*
 	filter := types.Filter{
 		Name:   aws.String("tag:Name"),
 		Values: []string{fmt.Sprintf("%s-*", clusterName)},

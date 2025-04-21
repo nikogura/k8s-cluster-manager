@@ -13,7 +13,7 @@ func TestAWSClusterManager_GetNode(t *testing.T) {
 		name string
 	}{
 		{
-			"alpha-cp-1",
+			"test-cp-1",
 		},
 		//{
 		//	fmt.Sprintf("%s-cp-1", clusterName),
