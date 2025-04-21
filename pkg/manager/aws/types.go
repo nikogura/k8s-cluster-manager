@@ -7,14 +7,13 @@ import (
 )
 
 type AWSNodeConfig struct {
-	ImageID            string   `json:"image_id"`
-	SubnetID           string   `json:"subnet_id"`
-	SecurityGroupIDs   []string `json:"security_group_ids"`
-	InstanceType       string   `json:"instance_type"`
-	BlockDeviceGb      int      `json:"block_device_gb"`
-	BlockDeviceName    string   `json:"block_device_name"` //default /dev/xvda
-	BlockDeviceType    string   `json:"block_device_type"`
-	PlacementGroupName string   `json:"placement_group_name"`
+	ImageID            string `json:"image_id"`
+	SubnetID           string `json:"subnet_id"`
+	InstanceType       string `json:"instance_type"`
+	BlockDeviceGb      int    `json:"block_device_gb"`
+	BlockDeviceName    string `json:"block_device_name"` //default /dev/xvda
+	BlockDeviceType    string `json:"block_device_type"`
+	PlacementGroupName string `json:"placement_group_name"`
 }
 
 type AWSNode struct {

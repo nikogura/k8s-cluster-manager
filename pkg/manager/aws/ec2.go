@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -9,10 +10,14 @@ import (
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/cloudflare"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/talos"
 	"github.com/pkg/errors"
+	"net"
 	"sort"
+	"time"
 )
 
-func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig) (err error) {
+const TALOS_CONTROL_PORT = 50000
+
+func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig, machineConfigBytes []byte) (err error) {
 	// Create Instance
 	fmt.Printf("Creating Node %s with role %s in cluster %s\n", nodeName, nodeRole, am.ClusterName())
 
@@ -55,19 +60,30 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		},
 	}
 
+	securityGroups, err := am.GetNodeSecurityGroupsForCluster()
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting security groups")
+		return err
+	}
+
+	sgIDs := make([]string, 0)
+
+	for _, g := range securityGroups {
+		sgIDs = append(sgIDs, *g.GroupId)
+	}
+
+	// TODO handle placement groups
+
 	input := &ec2.RunInstancesInput{
-		MaxCount:          aws.Int32(1),
-		MinCount:          aws.Int32(1),
-		ImageId:           aws.String(config.ImageID),
-		TagSpecifications: tags,
-		SecurityGroupIds:  config.SecurityGroupIDs,
-		SubnetId:          aws.String(config.SubnetID),
-		Placement:         nil, // *types.Placement
-		InstanceType:      types.InstanceType(config.InstanceType),
-
+		MaxCount:            aws.Int32(1),
+		MinCount:            aws.Int32(1),
+		ImageId:             aws.String(config.ImageID),
+		TagSpecifications:   tags,
+		SecurityGroupIds:    sgIDs,
+		SubnetId:            aws.String(config.SubnetID),
+		Placement:           nil, // *types.Placement
+		InstanceType:        types.InstanceType(config.InstanceType),
 		BlockDeviceMappings: blockDeviceMappings,
-
-		//SecurityGroups: nil, // []string  Names of security groups.  Probably not needed if we use ID's, and vice versa.
 	}
 
 	if config.PlacementGroupName != "" {
@@ -82,22 +98,40 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		return err
 	}
 
-	//Set IP on node struct
+	// Set IP on node struct
 	node.IPAddress = *output.Instances[0].PrivateIpAddress
 	node.NodeID = *output.Instances[0].InstanceId
 
-	err = talos.ApplyConfig(&node)
+	// TODO Do we need to poll until the box is ready?
+	fullAddr := fmt.Sprintf("%s:50000", node.IP())
+
+	fmt.Printf("Waiting for node %s to become ready\n", fullAddr)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
+
+	conn, err := dialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second)
+	if err != nil {
+		err = errors.Wrapf(err, "failed dialing %s", fullAddr)
+		return err
+	}
+	conn.Close()
+
+	// Apply Talos machine config
+	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, true)
 	if err != nil {
 		err = errors.Wrapf(err, "failed applying machine config to %s", nodeName)
 		return err
 	}
 
+	// Register Node with Load Balancers
 	err = am.RegisterNode(node)
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering %s", nodeName)
 		return err
 	}
 
+	// Register Node with DNS
 	err = cloudflare.RegisterNode(node)
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
@@ -105,6 +139,29 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	}
 
 	return err
+}
+
+func dialWithRetry(ctx context.Context, network, address string, maxRetries int, delay time.Duration) (net.Conn, error) {
+	var conn net.Conn
+	var err error
+	for i := 0; i <= maxRetries; i++ {
+		conn, err = net.DialTimeout(network, address, delay)
+		if err == nil {
+			return conn, nil
+		}
+		if i < maxRetries {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+				fmt.Printf("Connection attempt %d failed: %v.  Retrying.\n", i+1, err)
+				continue
+			}
+		} else {
+			return nil, fmt.Errorf("failed to dial after %d retries: %w", maxRetries+1, err)
+		}
+	}
+	return nil, err
 }
 
 func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
@@ -283,6 +340,56 @@ func (am *AWSClusterManager) GetNodes(clusterName string) (nodeInfo []manager.No
 	})
 
 	return nodeInfo, err
+}
+
+func (am *AWSClusterManager) GetSecurityGroupsForCluster() (groups []types.SecurityGroup, err error) {
+	input := &ec2.DescribeSecurityGroupsInput{
+		//DryRun:     nil,
+		Filters: []types.Filter{
+			{
+				Name: aws.String("tag:Cluster"),
+				Values: []string{
+					am.ClusterName(),
+				},
+			},
+		},
+		//GroupIds:   nil,
+		//GroupNames: nil,
+		//MaxResults: nil,
+		//NextToken:  nil,
+	}
+
+	output, err := am.Ec2Client.DescribeSecurityGroups(am.Context, input)
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting security groups for cluster %s", am.ClusterName())
+		return groups, err
+	}
+
+	groups = output.SecurityGroups
+
+	return groups, err
+}
+
+func (am *AWSClusterManager) GetNodeSecurityGroupsForCluster() (groups []types.SecurityGroup, err error) {
+	groups = make([]types.SecurityGroup, 0)
+
+	allGroups, err := am.GetSecurityGroupsForCluster()
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting security groups for cluster")
+		return groups, err
+	}
+
+	for _, g := range allGroups {
+		for _, p := range g.IpPermissions {
+			if p.ToPort != nil {
+				if int(*p.ToPort) == TALOS_CONTROL_PORT {
+					groups = append(groups, g)
+				}
+			}
+		}
+	}
+
+	return groups, err
 }
 
 func (am *AWSClusterManager) UpdateNode(nodeName string) (err error) {

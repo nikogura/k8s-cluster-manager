@@ -38,3 +38,73 @@ func TestAWSClusterManager_GetNode(t *testing.T) {
 		})
 	}
 }
+
+func TestAWSClusterManager_GetSecurityGroupsForCluster(t *testing.T) {
+	testCases := []struct {
+		name string
+	}{
+		{
+			"one",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual, err := awsClusterManager.GetSecurityGroupsForCluster()
+			if err != nil {
+				t.Errorf("Failed getting security groups for cluster %s: %s", tc.name, err)
+			}
+
+			//for _, g := range actual {
+			//	fmt.Printf("Name: %s  ID: %s\n", *g.GroupName, *g.GroupId)
+			//	for _, perm := range g.IpPermissions {
+			//		if perm.ToPort != nil {
+			//			fmt.Printf("  %d\n", *perm.ToPort)
+			//
+			//		} else {
+			//			fmt.Printf("  All\n")
+			//		}
+			//	}
+			//}
+
+			assert.Truef(t, len(actual) > 0, "No security groups found")
+
+		})
+	}
+
+}
+
+func TestAWSClusterManager_GetNodeSecurityGroupsForCluster(t *testing.T) {
+	testCases := []struct {
+		name string
+	}{
+		{
+			"one",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual, err := awsClusterManager.GetNodeSecurityGroupsForCluster()
+			if err != nil {
+				t.Errorf("Failed getting security groups for cluster %s: %s", tc.name, err)
+			}
+
+			//for _, g := range actual {
+			//	fmt.Printf("Name: %s  ID: %s\n", *g.GroupName, *g.GroupId)
+			//	for _, perm := range g.IpPermissions {
+			//		if perm.ToPort != nil {
+			//			fmt.Printf("  %d\n", *perm.ToPort)
+			//
+			//		} else {
+			//			fmt.Printf("  All\n")
+			//		}
+			//	}
+			//}
+
+			assert.Truef(t, len(actual) > 0, "No security groups found")
+
+		})
+	}
+
+}

@@ -48,13 +48,19 @@ Convenience wrapper that calls Delete() and then Create().
 			}
 
 			// Load Config
-			nodeConfig, err := aws.LoadAWSNodeConfigFromFile(configFile)
+			nodeConfig, err := aws.LoadAWSNodeConfigFromFile(nodeConfigFile)
 			if err != nil {
-				log.Fatalf("Failed loading config file %s: %s", configFile, err)
+				log.Fatalf("Failed loading config file %s: %s", nodeConfigFile, err)
+			}
+
+			// Load the talos config from file or vault
+			machineConfigBytes, err := os.ReadFile(machineConfigFile)
+			if err != nil {
+				log.Fatalf("Failed loading machine config file %s: %s", machineConfigFile, err)
 			}
 
 			// Create Node
-			err = cm.CreateNode(nodeName, nodeRole, nodeConfig)
+			err = cm.CreateNode(nodeName, nodeRole, nodeConfig, machineConfigBytes)
 			if err != nil {
 				log.Fatalf("error creating node %s: %s", nodeName, err)
 			}
