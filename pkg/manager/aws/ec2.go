@@ -21,10 +21,11 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	fmt.Printf("Creating Node %s with role %s in cluster %s\n", nodeName, nodeRole, am.ClusterName())
 
 	node := AWSNode{
-		NodeName:  nodeName,
-		IPAddress: "", // we don't know the IP address yet.
-		NodeRole:  nodeRole,
-		Config:    &config,
+		NodeName:   nodeName,
+		IPAddress:  "", // we don't know the IP address yet.
+		NodeRole:   nodeRole,
+		Config:     &config,
+		NodeDomain: config.Domain,
 	}
 
 	// Set up the "Name" Tag.

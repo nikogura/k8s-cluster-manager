@@ -14,14 +14,16 @@ type AWSNodeConfig struct {
 	BlockDeviceName    string `json:"block_device_name"` //default /dev/xvda
 	BlockDeviceType    string `json:"block_device_type"`
 	PlacementGroupName string `json:"placement_group_name"`
+	Domain             string `json:"domain"`
 }
 
 type AWSNode struct {
-	NodeName  string         `json:"name"`
-	IPAddress string         `json:"ip_address"`
-	NodeRole  string         `json:"role"`
-	NodeID    string         `json:"id"`
-	Config    *AWSNodeConfig `json:"config"`
+	NodeName   string         `json:"name"`
+	IPAddress  string         `json:"ip_address"`
+	NodeRole   string         `json:"role"`
+	NodeID     string         `json:"id"`
+	Config     *AWSNodeConfig `json:"config"`
+	NodeDomain string         `json:"domain"`
 }
 
 func (c AWSNode) Name() (nodeName string) {
@@ -38,6 +40,10 @@ func (c AWSNode) IP() (ip string) {
 
 func (c AWSNode) ID() (id string) {
 	return c.NodeID
+}
+
+func (c AWSNode) Domain() (domain string) {
+	return c.NodeDomain
 }
 
 func LoadAWSNodeConfigFromFile(filePath string) (config AWSNodeConfig, err error) {

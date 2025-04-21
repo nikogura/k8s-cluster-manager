@@ -30,6 +30,7 @@ type AWSClusterManager struct {
 	cloudProviderName          string
 	k8sProviderName            string
 	scheduleWorkloadsOnCPNodes bool
+	domain                     string
 	Config                     aws.Config
 	Ec2Client                  *ec2.Client
 	ELBClient                  *elasticloadbalancingv2.Client

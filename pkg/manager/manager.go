@@ -116,6 +116,7 @@ type ClusterNode interface {
 	Role() (role string)     // Role (cp | worker) of the node
 	IP() (ip string)         // IP address of the node
 	ID() (id string)         // ID of the node
+	Domain() (domain string) // Domain of the node
 }
 
 func DialWithRetry(ctx context.Context, network, address string, maxRetries int, delay time.Duration) (net.Conn, error) {

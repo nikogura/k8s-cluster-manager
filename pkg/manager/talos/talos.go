@@ -11,7 +11,7 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 )
 
-func ApplyConfig(ctx context.Context, node manager.ClusterNode, machineConfigBytes []byte, machineConfigPatchBytes []string, insecure bool) (err error) {
+func ApplyConfig(ctx context.Context, node manager.ClusterNode, machineConfigBytes []byte, machineConfigPatches []string, insecure bool) (err error) {
 	fmt.Printf("Applying config to %s (%s)\n", node.Name(), node.IP())
 
 	tlsConfig := &tls.Config{}
@@ -21,8 +21,16 @@ func ApplyConfig(ctx context.Context, node manager.ClusterNode, machineConfigByt
 		tlsConfig.InsecureSkipVerify = true
 	}
 
+	// Crude yaml patch to put the node name into the machine config.  Note the spaces (not tabs) cos it's yaml.
+	nodeNamePatch := fmt.Sprintf(`machine:
+  network:
+    hostname: %s.%s
+`, node.Name(), node.Domain())
+
+	machineConfigPatches = append(machineConfigPatches, nodeNamePatch)
+
 	// Load config patches
-	patches, err := configpatcher.LoadPatches(machineConfigPatchBytes)
+	patches, err := configpatcher.LoadPatches(machineConfigPatches)
 	if err != nil {
 		err = errors.Wrapf(err, "failed loading config patches")
 		return err

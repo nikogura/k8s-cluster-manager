@@ -61,7 +61,7 @@ Create a new Kubernetes Node
 			// Create Node
 			err = cm.CreateNode(nodeName, nodeRole, nodeConfig, machineConfigBytes, []string{machineConfigPatchFile})
 			if err != nil {
-				log.Fatalf("error deleting node %s: %s", nodeName, err)
+				log.Fatalf("error creating node %s: %s", nodeName, err)
 			}
 
 		default:
