@@ -13,7 +13,9 @@ var clusterName string
 var cloudProvider string
 var nodeConfigFile string
 var machineConfigFile string
-var machineConfigPatchFile string
+var machineConfigPatch string
+var verbose bool
+var secretPath string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -40,5 +42,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cloudProvider, "cloudprovider", "p", "aws", "Cloud provider")
 	rootCmd.PersistentFlags().StringVarP(&nodeConfigFile, "nodeconfig", "", "", "Path to node config file")
 	rootCmd.PersistentFlags().StringVarP(&machineConfigFile, "machineconfig", "", "", "Path to talos machine config file")
-	rootCmd.PersistentFlags().StringVarP(&machineConfigPatchFile, "machineconfigpatch", "", "", "Path to talos machine config patch file")
+	rootCmd.PersistentFlags().StringVarP(&machineConfigPatch, "machineconfigpatch", "", "", "Path to talos machine config patch file")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	rootCmd.PersistentFlags().StringVarP(&secretPath, "secretmount", "m", "", "Vault path for secrets.")
 }

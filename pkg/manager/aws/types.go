@@ -26,24 +26,24 @@ type AWSNode struct {
 	NodeDomain string         `json:"domain"`
 }
 
-func (c AWSNode) Name() (nodeName string) {
-	return c.NodeName
+func (n AWSNode) Name() (nodeName string) {
+	return n.NodeName
 }
 
-func (c AWSNode) Role() (role string) {
-	return c.NodeRole
+func (n AWSNode) Role() (role string) {
+	return n.NodeRole
 }
 
-func (c AWSNode) IP() (ip string) {
-	return c.IPAddress
+func (n AWSNode) IP() (ip string) {
+	return n.IPAddress
 }
 
-func (c AWSNode) ID() (id string) {
-	return c.NodeID
+func (n AWSNode) ID() (id string) {
+	return n.NodeID
 }
 
-func (c AWSNode) Domain() (domain string) {
-	return c.NodeDomain
+func (n AWSNode) Domain() (domain string) {
+	return n.NodeDomain
 }
 
 func LoadAWSNodeConfigFromFile(filePath string) (config AWSNodeConfig, err error) {

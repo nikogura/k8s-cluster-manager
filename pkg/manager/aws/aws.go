@@ -31,6 +31,7 @@ type AWSClusterManager struct {
 	k8sProviderName            string
 	scheduleWorkloadsOnCPNodes bool
 	domain                     string
+	verbose                    bool
 	Config                     aws.Config
 	Ec2Client                  *ec2.Client
 	ELBClient                  *elasticloadbalancingv2.Client
@@ -108,6 +109,10 @@ func (am *AWSClusterManager) K8sProviderName() string {
 
 func (am *AWSClusterManager) ScheduleWorkloadsOnCPNodes() bool {
 	return am.scheduleWorkloadsOnCPNodes
+}
+
+func (am *AWSClusterManager) Verbose() bool {
+	return am.verbose
 }
 
 func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.ClusterInfo, err error) {

@@ -119,7 +119,7 @@ type ClusterNode interface {
 	Domain() (domain string) // Domain of the node
 }
 
-func DialWithRetry(ctx context.Context, network, address string, maxRetries int, delay time.Duration) (net.Conn, error) {
+func DialWithRetry(ctx context.Context, network, address string, maxRetries int, delay time.Duration, verbose bool) (net.Conn, error) {
 	var conn net.Conn
 	var err error
 	for i := 0; i <= maxRetries; i++ {
@@ -132,7 +132,7 @@ func DialWithRetry(ctx context.Context, network, address string, maxRetries int,
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			case <-time.After(delay):
-				fmt.Printf("Connection attempt %d failed: %v.  Retrying.\n", i+1, err)
+				VerboseOutput(verbose, "Connection attempt %d failed: %v.  Retrying.\n", i+1, err)
 				continue
 			}
 		} else {
@@ -140,4 +140,16 @@ func DialWithRetry(ctx context.Context, network, address string, maxRetries int,
 		}
 	}
 	return nil, err
+}
+
+func VerboseOutput(verbose bool, message string, args ...interface{}) {
+	if verbose {
+		if len(args) == 0 {
+			fmt.Printf("%s\n", message)
+			return
+		}
+
+		msg := fmt.Sprintf(message, args...)
+		fmt.Printf("%s\n", msg)
+	}
 }

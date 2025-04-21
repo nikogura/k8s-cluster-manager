@@ -1,7 +1,6 @@
 package aws
 
 import (
-	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -157,7 +156,7 @@ func (am *AWSClusterManager) UpdateLB() (err error) {
 }
 
 func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err error) {
-	fmt.Printf("Deregistering node %s from load balancers in cluster %s \n", nodeName, am.ClusterName())
+	manager.VerboseOutput(am.Verbose(), "Deregistering node %s from load balancers in cluster %s \n", nodeName, am.ClusterName())
 
 	lbs, err := am.GetClusterLBs()
 	if err != nil {
@@ -169,11 +168,10 @@ func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err
 	for _, lb := range lbs {
 		for _, tg := range lb.TargetGroups {
 			// Register the node in the TargetGroup
-			fmt.Printf("Degistering Node %s with Target Group %s on Port %d\n", nodeName, tg.ID, tg.Port)
+			manager.VerboseOutput(am.Verbose(), "Degistering Node %s with Target Group %s on Port %d\n", nodeName, tg.ID, tg.Port)
 			err = am.DeregisterTarget(tg.ID, nodeID, tg.Port)
 			if err != nil {
 				err = errors.Wrapf(err, "failed deregistering %s on tg %s", nodeName, tg.ID)
-				fmt.Printf("Error deregistering node %s from lb %s in cluster %s: %s\n", nodeName, lb.Name, am.ClusterName(), err)
 				return err
 			}
 		}
@@ -205,7 +203,7 @@ func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port 
 }
 
 func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) {
-	fmt.Printf("Registering Node %s\n", node.Name())
+	manager.VerboseOutput(am.Verbose(), "Registering Node %s\n", node.Name())
 
 	lbs, err := am.GetClusterLBs()
 	if err != nil {
@@ -233,7 +231,7 @@ func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) 
 		// Else, for every non apiserver lb, register this node as a target.
 		for _, tg := range lb.TargetGroups {
 			// Register the node in the TargetGroup
-			fmt.Printf("Registering Node %s with Target Group %s on Port %d\n", node.ID(), tg.ID, tg.Port)
+			manager.VerboseOutput(am.Verbose(), "Registering Node %s with Target Group %s on Port %d\n", node.ID(), tg.ID, tg.Port)
 			err = am.RegisterTarget(tg.ID, node.ID(), tg.Port)
 			if err != nil {
 				err = errors.Wrapf(err, "failed registering %s on tg %s", node.ID(), tg.ID)

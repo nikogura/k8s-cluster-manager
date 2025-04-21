@@ -101,12 +101,12 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 
 	fullAddr := fmt.Sprintf("%s:50000", node.IP())
 
-	fmt.Printf("Waiting for node %s to become ready (This will take several tries.)\n", fullAddr)
+	manager.VerboseOutput(am.Verbose(), "Waiting for node %s to become ready (This will take several tries.)\n", fullAddr)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	conn, err := manager.DialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second)
+	conn, err := manager.DialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second, am.Verbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed dialing %s", fullAddr)
 		return err
@@ -114,7 +114,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	conn.Close()
 
 	// Apply Talos machine config
-	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, machineConfigPatches, true)
+	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, machineConfigPatches, true, am.Verbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed applying machine config to %s", nodeName)
 		return err
@@ -134,12 +134,14 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		return err
 	}
 
+	fmt.Printf("Node Successfully Created and Registered\n")
+
 	return err
 }
 
 func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	// Get Node info
-	fmt.Printf("Getting node info\n")
+	manager.VerboseOutput(am.Verbose(), "Getting node info\n")
 	nodeInfo, err := am.GetNode(nodeName)
 	if err != nil {
 		err = errors.Wrapf(err, "failed getting node %s", nodeName)
@@ -158,7 +160,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	fmt.Printf("Removing node %s from EC2\n", nodeName)
+	manager.VerboseOutput(am.Verbose(), "Removing node %s from EC2\n", nodeName)
 	// Remove Instance
 	input := &ec2.TerminateInstancesInput{
 		InstanceIds: []string{nodeInfo.ID},
@@ -171,15 +173,14 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	fmt.Printf("Node Terminated\n")
-
 	// TODO delete node in k8s
+
+	fmt.Printf("Node Terminated\n")
 
 	return err
 }
 
 func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo, err error) {
-
 	// aws ec2 describe-instances --filters Name=tag:Name,Values=alpha*
 	filter := types.Filter{
 		Name:   aws.String("tag:Name"),
@@ -199,23 +200,36 @@ func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo
 		err = errors.Wrapf(err, "failed getting node %s", nodeName)
 	}
 
-	if len(output.Reservations) > 0 {
-		if len(output.Reservations[0].Instances) > 0 {
-			nodeInfo.Name = nodeName
-			nodeInfo.ID = *output.Reservations[0].Instances[0].InstanceId
+	// There could be any number of instances out there with the same Name tag.  We're only interested in the one that's 'running'.
+	for _, res := range output.Reservations {
+		for _, inst := range res.Instances {
+			if inst.State.Name == types.InstanceStateNameRunning {
+				nodeInfo.Name = nodeName
+				nodeInfo.ID = *output.Reservations[0].Instances[0].InstanceId
 
-			am.FetchedNodesByName[nodeName] = nodeInfo
-			am.FetchedNodesById[*output.Reservations[0].Instances[0].InstanceId] = nodeInfo
-
-		} else {
-			err = errors.New(fmt.Sprintf("instance for name %s not found", nodeName))
-			return nodeInfo, err
-
+				am.FetchedNodesByName[nodeName] = nodeInfo
+				am.FetchedNodesById[*output.Reservations[0].Instances[0].InstanceId] = nodeInfo
+			}
 		}
-	} else {
-		err = errors.New(fmt.Sprintf("reservation for name %s not found", nodeName))
-		return nodeInfo, err
 	}
+
+	//if len(output.Reservations) > 0 {
+	//	if len(output.Reservations[0].Instances) > 0 {
+	//		nodeInfo.Name = nodeName
+	//		nodeInfo.ID = *output.Reservations[0].Instances[0].InstanceId
+	//
+	//		am.FetchedNodesByName[nodeName] = nodeInfo
+	//		am.FetchedNodesById[*output.Reservations[0].Instances[0].InstanceId] = nodeInfo
+	//
+	//	} else {
+	//		err = errors.New(fmt.Sprintf("instance for name %s not found", nodeName))
+	//		return nodeInfo, err
+	//
+	//	}
+	//} else {
+	//	err = errors.New(fmt.Sprintf("reservation for name %s not found", nodeName))
+	//	return nodeInfo, err
+	//}
 
 	// TODO get DNS Status?
 

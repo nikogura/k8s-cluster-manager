@@ -11,8 +11,8 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 )
 
-func ApplyConfig(ctx context.Context, node manager.ClusterNode, machineConfigBytes []byte, machineConfigPatches []string, insecure bool) (err error) {
-	fmt.Printf("Applying config to %s (%s)\n", node.Name(), node.IP())
+func ApplyConfig(ctx context.Context, node manager.ClusterNode, machineConfigBytes []byte, machineConfigPatches []string, insecure bool, verbose bool) (err error) {
+	manager.VerboseOutput(verbose, "Applying config to %s (%s)\n", node.Name(), node.IP())
 
 	tlsConfig := &tls.Config{}
 
