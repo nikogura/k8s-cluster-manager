@@ -10,14 +10,13 @@ import (
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/cloudflare"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/talos"
 	"github.com/pkg/errors"
-	"net"
 	"sort"
 	"time"
 )
 
 const TALOS_CONTROL_PORT = 50000
 
-func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig, machineConfigBytes []byte) (err error) {
+func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig, machineConfigBytes []byte, machineConfigPatches []string) (err error) {
 	// Create Instance
 	fmt.Printf("Creating Node %s with role %s in cluster %s\n", nodeName, nodeRole, am.ClusterName())
 
@@ -72,8 +71,6 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		sgIDs = append(sgIDs, *g.GroupId)
 	}
 
-	// TODO handle placement groups
-
 	input := &ec2.RunInstancesInput{
 		MaxCount:            aws.Int32(1),
 		MinCount:            aws.Int32(1),
@@ -81,7 +78,6 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		TagSpecifications:   tags,
 		SecurityGroupIds:    sgIDs,
 		SubnetId:            aws.String(config.SubnetID),
-		Placement:           nil, // *types.Placement
 		InstanceType:        types.InstanceType(config.InstanceType),
 		BlockDeviceMappings: blockDeviceMappings,
 	}
@@ -102,15 +98,14 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	node.IPAddress = *output.Instances[0].PrivateIpAddress
 	node.NodeID = *output.Instances[0].InstanceId
 
-	// TODO Do we need to poll until the box is ready?
 	fullAddr := fmt.Sprintf("%s:50000", node.IP())
 
-	fmt.Printf("Waiting for node %s to become ready\n", fullAddr)
+	fmt.Printf("Waiting for node %s to become ready (This will take several tries.)\n", fullAddr)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	conn, err := dialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second)
+	conn, err := manager.DialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second)
 	if err != nil {
 		err = errors.Wrapf(err, "failed dialing %s", fullAddr)
 		return err
@@ -118,7 +113,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	conn.Close()
 
 	// Apply Talos machine config
-	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, true)
+	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, machineConfigPatches, true)
 	if err != nil {
 		err = errors.Wrapf(err, "failed applying machine config to %s", nodeName)
 		return err
@@ -139,29 +134,6 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	}
 
 	return err
-}
-
-func dialWithRetry(ctx context.Context, network, address string, maxRetries int, delay time.Duration) (net.Conn, error) {
-	var conn net.Conn
-	var err error
-	for i := 0; i <= maxRetries; i++ {
-		conn, err = net.DialTimeout(network, address, delay)
-		if err == nil {
-			return conn, nil
-		}
-		if i < maxRetries {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(delay):
-				fmt.Printf("Connection attempt %d failed: %v.  Retrying.\n", i+1, err)
-				continue
-			}
-		} else {
-			return nil, fmt.Errorf("failed to dial after %d retries: %w", maxRetries+1, err)
-		}
-	}
-	return nil, err
 }
 
 func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
@@ -393,7 +365,7 @@ func (am *AWSClusterManager) GetNodeSecurityGroupsForCluster() (groups []types.S
 }
 
 func (am *AWSClusterManager) UpdateNode(nodeName string) (err error) {
-	// Unsure what we'd be updating.
+	// Unsure what we'd be updating beyond machine config.
 	// TODO Update LB
 	// TODO Update Instance
 	// TODO Update DNS

@@ -60,7 +60,7 @@ Convenience wrapper that calls Delete() and then Create().
 			}
 
 			// Create Node
-			err = cm.CreateNode(nodeName, nodeRole, nodeConfig, machineConfigBytes)
+			err = cm.CreateNode(nodeName, nodeRole, nodeConfig, machineConfigBytes, []string{machineConfigPatchFile})
 			if err != nil {
 				log.Fatalf("error creating node %s: %s", nodeName, err)
 			}

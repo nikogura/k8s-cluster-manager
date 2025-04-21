@@ -20,3 +20,17 @@ Node creation basically looks like this:
 # Node Deletion
 
 Node deletion removes the VM's from the load balancers, and then deletes the VM.
+
+
+# Needs
+
+controlplane machine config yaml
+  -> patch with node name
+
+worker machine config yaml
+  -> patch with node name
+
+general node configuration
+  -> patch with instance type
+  -> patch with root volume size, type, iops, throughput
+

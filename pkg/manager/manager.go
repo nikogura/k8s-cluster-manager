@@ -1,6 +1,11 @@
 package manager
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"net"
+	"time"
+)
 
 const NODE_ROLE_CP = "cp"
 const NODE_ROLE_WORKER = "worker"
@@ -111,4 +116,27 @@ type ClusterNode interface {
 	Role() (role string)     // Role (cp | worker) of the node
 	IP() (ip string)         // IP address of the node
 	ID() (id string)         // ID of the node
+}
+
+func DialWithRetry(ctx context.Context, network, address string, maxRetries int, delay time.Duration) (net.Conn, error) {
+	var conn net.Conn
+	var err error
+	for i := 0; i <= maxRetries; i++ {
+		conn, err = net.DialTimeout(network, address, delay)
+		if err == nil {
+			return conn, nil
+		}
+		if i < maxRetries {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+				fmt.Printf("Connection attempt %d failed: %v.  Retrying.\n", i+1, err)
+				continue
+			}
+		} else {
+			return nil, fmt.Errorf("failed to dial after %d retries: %w", maxRetries+1, err)
+		}
+	}
+	return nil, err
 }

@@ -13,6 +13,7 @@ var clusterName string
 var cloudProvider string
 var nodeConfigFile string
 var machineConfigFile string
+var machineConfigPatchFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -39,4 +40,5 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cloudProvider, "cloudprovider", "p", "aws", "Cloud provider")
 	rootCmd.PersistentFlags().StringVarP(&nodeConfigFile, "nodeconfig", "", "", "Path to node config file")
 	rootCmd.PersistentFlags().StringVarP(&machineConfigFile, "machineconfig", "", "", "Path to talos machine config file")
+	rootCmd.PersistentFlags().StringVarP(&machineConfigPatchFile, "machineconfigpatch", "", "", "Path to talos machine config patch file")
 }
