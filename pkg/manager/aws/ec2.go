@@ -172,6 +172,8 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 
 	fmt.Printf("Node Terminated\n")
 
+	// TODO delete node in k8s
+
 	return err
 }
 
