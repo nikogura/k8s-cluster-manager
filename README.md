@@ -6,7 +6,7 @@ I've had unsatisfactory experience with both managed kubernetes clusters, and th
 
 I prefer to put a simple layer 4 load balancer over my k8s instances, and add / remove nodes when I want to scale up or down.
 
-This utility will create VM's, create load balancers, and attach the instances to the load balancers and configure the VM's for Talos Linux.
+This utility will (eventually) create VM's, create load balancers, and attach the instances to the load balancers and configure the VM's for Talos Linux.
 
 # Node Creation
 
