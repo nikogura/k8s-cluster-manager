@@ -1,29 +1,29 @@
 package aws
 
 import (
-	"encoding/json"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 	"os"
 )
 
 type AWSNodeConfig struct {
-	ImageID            string `json:"image_id"`
-	SubnetID           string `json:"subnet_id"`
-	InstanceType       string `json:"instance_type"`
-	BlockDeviceGb      int    `json:"block_device_gb"`
-	BlockDeviceName    string `json:"block_device_name"` //default /dev/xvda
-	BlockDeviceType    string `json:"block_device_type"`
-	PlacementGroupName string `json:"placement_group_name"`
-	Domain             string `json:"domain"`
+	ImageID            string `yaml:"image_id"`
+	SubnetID           string `yaml:"subnet_id"`
+	InstanceType       string `yaml:"instance_type"`
+	BlockDeviceGb      string `yaml:"block_device_gb"`
+	BlockDeviceName    string `yaml:"block_device_name"`
+	BlockDeviceType    string `yaml:"block_device_type"`
+	PlacementGroupName string `yaml:"placement_group_name"`
+	Domain             string `yaml:"domain"`
 }
 
 type AWSNode struct {
-	NodeName   string         `json:"name"`
-	IPAddress  string         `json:"ip_address"`
-	NodeRole   string         `json:"role"`
-	NodeID     string         `json:"id"`
-	Config     *AWSNodeConfig `json:"config"`
-	NodeDomain string         `json:"domain"`
+	NodeName   string         `yaml:"name"`
+	IPAddress  string         `yaml:"ip_address"`
+	NodeRole   string         `yaml:"role"`
+	NodeID     string         `yaml:"id"`
+	Config     *AWSNodeConfig `yaml:"config"`
+	NodeDomain string         `yaml:"domain"`
 }
 
 func (n AWSNode) Name() (nodeName string) {
@@ -57,7 +57,7 @@ func LoadAWSNodeConfigFromFile(filePath string) (config AWSNodeConfig, err error
 }
 
 func LoadAWSNodeConfig(data []byte) (config AWSNodeConfig, err error) {
-	err = json.Unmarshal(data, &config)
+	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		err = errors.Wrapf(err, "failed unmarshalling data into struct")
 		return config, err

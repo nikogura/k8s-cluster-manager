@@ -103,36 +103,6 @@ func SecretData(client *api.Client, path string, verbose bool) (data map[string]
 	return data, err
 }
 
-// GetSecret returns a secret from the given path
-func GetSecret(client *api.Client, path string) (secret *api.Secret, err error) {
-	secret, err = client.Logical().Read(path)
-	if err != nil {
-		err = errors.Wrapf(err, "failed to fetch secret from %s", path)
-		return secret, err
-	}
-
-	return secret, err
-}
-
-// GetSecrets gets all secrets at a given path.  Similar to ListSecrets, but returns the secret objects below path.
-func GetSecrets(client *api.Client, paths []string) (secrets []*api.Secret, err error) {
-	secrets = make([]*api.Secret, 0)
-
-	for _, path := range paths {
-		secret, err := GetSecret(client, path)
-		if err != nil {
-			err = errors.Wrapf(err, "failed to fetch secret from path %s", path)
-			return secrets, err
-		}
-
-		if secret != nil {
-			secrets = append(secrets, secret)
-		}
-	}
-
-	return secrets, err
-}
-
 func V2Path(path string) (v2Path string, err error) {
 	parts := strings.Split(path, "/")
 	if len(parts) < 2 {
@@ -146,4 +116,63 @@ func V2Path(path string) (v2Path string, err error) {
 	v2Path = fmt.Sprintf("%s/data/%s", mount, secretPath)
 
 	return v2Path, err
+}
+
+func ConfigsFromSecret(client *api.Client, mount string, clusterName string, nodeRole string, cloudProvider string, verbose bool) (config []byte, patch []byte, node []byte, err error) {
+	secretPath := fmt.Sprintf("%s/cluster-%s-%s", mount, clusterName, nodeRole)
+	if verbose {
+		fmt.Printf("Loading machine config from %s\n", secretPath)
+	}
+
+	secretData, err := SecretData(client, secretPath, verbose)
+	if err != nil {
+		err = errors.Wrapf(err, "failed getting secret from path %s", secretPath)
+		return config, patch, node, err
+	}
+
+	nodeKey := fmt.Sprintf("node-%s.yaml", cloudProvider)
+
+	c, ok := secretData["config.yaml"].(string)
+	if !ok {
+		err = errors.New("Could not extract bytes for config.yaml from secret")
+		return config, patch, node, err
+	}
+
+	config = []byte(c)
+
+	p, ok := secretData["patch.yaml"].(string)
+	if !ok {
+		err = errors.New("Could not extract bytes for patch.yaml from secret")
+		return config, patch, node, err
+	}
+
+	patch = []byte(p)
+
+	n, ok := secretData[nodeKey].(string)
+	if !ok {
+		err = errors.New(fmt.Sprintf("Could not extract bytes for %s from secret", nodeKey))
+		return config, patch, node, err
+	}
+
+	node = []byte(n)
+
+	//config, err = yaml.Marshal(secretData["config.yaml"])
+	//if err != nil {
+	//	err = errors.Wrapf(err, "failed marshalling secret data from path %s", secretPath)
+	//	return config, patch, node, err
+	//}
+	//
+	//patch, err = yaml.Marshal(secretData["patch.yaml"])
+	//if err != nil {
+	//	err = errors.Wrapf(err, "failed marshalling secret data from path %s", secretPath)
+	//	return config, patch, node, err
+	//}
+	//
+	//node, err = yaml.Marshal(secretData[nodeKey])
+	//if err != nil {
+	//	err = errors.Wrapf(err, "failed marshalling secret data from path %s", secretPath)
+	//	return config, patch, node, err
+	//}
+
+	return config, patch, node, err
 }

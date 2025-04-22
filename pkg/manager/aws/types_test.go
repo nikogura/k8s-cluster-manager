@@ -1,7 +1,6 @@
 package aws
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"os"
@@ -11,20 +10,30 @@ import (
 
 func TestLoadConfig(t *testing.T) {
 	cases := []struct {
-		name  string
-		input string
+		name     string
+		input    string
+		expected AWSNodeConfig
 	}{
 		{
 			"one",
-			`{
-  "image_id": "ami-00000000000001111111",
-  "subnet_id": "subnet-0babababababababaa7f",
-  "instance_type": "blarg",
-  "block_device_name": "/dev/xvda",
-  "block_device_gb": 100,
-  "block_device_type": "hd2",
-  "placement_group_name": "blah"
-}`,
+			`image_id: ami-00000000000001111111
+subnet_id: subnet-0babababababababaa7f
+instance_type: blarg
+block_device_name: /dev/xvda
+block_device_gb: 100
+block_device_type: hd2
+placement_group_name: blah
+`,
+			AWSNodeConfig{
+				ImageID:            "ami-00000000000001111111",
+				SubnetID:           "subnet-0babababababababaa7f",
+				InstanceType:       "blarg",
+				BlockDeviceGb:      "100",
+				BlockDeviceName:    "/dev/xvda",
+				BlockDeviceType:    "hd2",
+				PlacementGroupName: "blah",
+				Domain:             "",
+			},
 		},
 	}
 
@@ -40,12 +49,7 @@ func TestLoadConfig(t *testing.T) {
 			t.Errorf("failed loading config file: %s", err)
 		}
 
-		expected := AWSNodeConfig{}
-
-		err = json.Unmarshal([]byte(tc.input), &expected)
-		if err != nil {
-			t.Errorf("failed unmarshalling test data: %s", err)
-		}
+		expected := tc.expected
 
 		assert.True(t, reflect.DeepEqual(expected, actual), "Loaded config fails to meet expectations.")
 

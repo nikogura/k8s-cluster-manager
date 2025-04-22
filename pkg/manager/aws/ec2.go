@@ -11,6 +11,7 @@ import (
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/talos"
 	"github.com/pkg/errors"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -41,6 +42,12 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		},
 	}
 
+	blockSize, err := strconv.Atoi(config.BlockDeviceGb)
+	if err != nil {
+		err = errors.Wrapf(err, "failed converting %s to integer", config.BlockDeviceGb)
+		return err
+	}
+
 	blockDeviceMappings := []types.BlockDeviceMapping{
 		types.BlockDeviceMapping{
 			DeviceName: aws.String("/dev/xvda"),
@@ -52,7 +59,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 				//OutpostArn:          nil,
 				//SnapshotId:          nil,
 				//Throughput:          nil,
-				VolumeSize: aws.Int32(int32(config.BlockDeviceGb)),
+				VolumeSize: aws.Int32(int32(blockSize)),
 				VolumeType: types.VolumeType(config.BlockDeviceType),
 			},
 			NoDevice:    nil,

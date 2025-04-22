@@ -5,9 +5,7 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/ghodss/yaml"
 	"github.com/mitchellh/go-homedir"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/aws"
@@ -64,30 +62,21 @@ Create a new Kubernetes Node
 			log.Fatalf("failed creating vault client: %s.", err)
 		}
 
+		var configBytesFromSecret, patchBytesFromSecret, nodeBytesFromSecret []byte
+
 		// Talos machine configuration
 		var machineConfigBytes []byte
 
+		if secretPath != "" {
+			configBytesFromSecret, patchBytesFromSecret, nodeBytesFromSecret, err = manager.ConfigsFromSecret(client, secretPath, clusterName, nodeRole, cloudProvider, verbose)
+			if err != nil {
+				log.Fatalf("Failed getting secrets: %s", err)
+			}
+		}
+
 		// if a file is has not been specified, and a secret path has, we'll try to get the data out of vault.
-		if machineConfigFile == "" && secretPath != "" {
-			machineConfigPath := fmt.Sprintf("%s/cluster-%s-machine-%s", secretPath, clusterName, nodeRole)
-			if verbose {
-				fmt.Printf("Loading machine config from %s\n", machineConfigPath)
-			}
-
-			// Unfortuately, the vault secret gets automatically unmarshalled.
-			machineConfigData, err := manager.SecretData(client, machineConfigPath, verbose)
-			if err != nil {
-				log.Fatalf("Error getting secret at %q: %s", secretPath, err)
-			}
-
-			//Marshal it back to YAML, cos that's what the talos sdk expects.
-			yamlBytes, err := yaml.Marshal(machineConfigData)
-			if err != nil {
-				log.Fatalf("Failed secret data to yaml")
-			}
-
-			machineConfigBytes = yamlBytes
-
+		if machineConfigFile == "" {
+			machineConfigBytes = configBytesFromSecret
 		} else { // Alternately, Load the talos config from a file
 			machineConfigBytes, err = os.ReadFile(machineConfigFile)
 			if err != nil {
@@ -100,23 +89,9 @@ Create a new Kubernetes Node
 		}
 
 		// Load Talos Machine Config Patch from Vault if a patch has not been provided manually but a secret path has.
-		// This is a little magic as the Talos patch loader expects to get yaml as a string or in a filename, so we only handle the case where there is no patch and we have a secret path.
-		if machineConfigPatch == "" && secretPath != "" {
-			machineConfigPatchPath := fmt.Sprintf("%s/cluster-%s-patch-%s", secretPath, clusterName, nodeRole)
-			if verbose {
-				fmt.Printf("Loading machine config patch from %s\n", machineConfigPatchPath)
-			}
-			machineConfigPatchData, err := manager.SecretData(client, machineConfigPatchPath, verbose)
-			if err != nil {
-				log.Fatalf("Error getting secret at %q: %s", secretPath, err)
-			}
-
-			yamlBytes, err := yaml.Marshal(machineConfigPatchData)
-			if err != nil {
-				log.Fatalf("Failed converting patch data to yaml")
-			}
-
-			machineConfigPatch = fmt.Sprintf("%s", yamlBytes)
+		// This is a little magic as the Talos patch loader expects to get yaml as a string or in a filename, so we only handle the case where there is no patch provided, in which case we load it from the secret.
+		if machineConfigPatch == "" {
+			machineConfigPatch = string(patchBytesFromSecret)
 		}
 
 		if machineConfigPatch == "" {
@@ -134,27 +109,8 @@ Create a new Kubernetes Node
 			var nodeConfig aws.AWSNodeConfig
 
 			// If a config file has not been provided, Load the Node Config from Vault
-			if nodeConfigFile == "" && secretPath != "" {
-				nodeConfigPath := fmt.Sprintf("%s/cluster-%s-node-%s", secretPath, clusterName, nodeRole)
-				if verbose {
-					fmt.Printf("Loading node config from %s\n", nodeConfigPath)
-				}
-
-				nodeConfigData, err := manager.SecretData(client, nodeConfigPath, verbose)
-				if err != nil {
-					log.Fatalf("Error getting secret at %q: %s", secretPath, err)
-				}
-
-				jsonBytes, err := json.Marshal(nodeConfigData)
-				if err != nil {
-					log.Fatalf("Failed converting json to  yaml")
-				}
-
-				nodeConfig, err = aws.LoadAWSNodeConfig(jsonBytes)
-				if err != nil {
-					log.Fatalf("Failed loading node config: %s", err)
-				}
-
+			if nodeConfigFile == "" {
+				nodeConfig, err = aws.LoadAWSNodeConfig(nodeBytesFromSecret)
 			} else { // Otherwise load it from a file
 				nodeConfig, err = aws.LoadAWSNodeConfigFromFile(nodeConfigFile)
 				if err != nil {
