@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
-	"github.com/nikogura/k8s-cluster-manager/pkg/manager/cloudflare"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/talos"
 	"github.com/pkg/errors"
 	"sort"
@@ -135,13 +134,13 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	}
 
 	// Register Node with DNS
-	err = cloudflare.RegisterNode(am.Context, node, am.Verbose())
+	err = am.DNSManager().RegisterNode(am.Context, node, am.Verbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
 		return err
 	}
 
-	fmt.Printf("Node Successfully Created and Registered\n")
+	fmt.Printf("Node %s (%s) Successfully Created and Registered\n", node.Name(), node.NodeID)
 
 	return err
 }
@@ -155,7 +154,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	err = cloudflare.DeRegisterNode(am.Context, nodeName, am.Verbose())
+	err = am.DNSManager().DeregisterNode(am.Context, nodeName, am.Verbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed deregistering dns for %s", nodeName)
 		return err
@@ -176,13 +175,13 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	// Terminate Instances
 	_, err = am.Ec2Client.TerminateInstances(am.Context, input)
 	if err != nil {
-		err = errors.Wrapf(err, "failed removing node %s from aws", nodeName)
+		err = errors.Wrapf(err, "failed removing node %s (%s) from aws", nodeName, nodeInfo.ID)
 		return err
 	}
 
 	// TODO delete node in k8s
 
-	fmt.Printf("Node Terminated\n")
+	fmt.Printf("Node %s (%s) Terminated\n", nodeName, nodeInfo.ID)
 
 	return err
 }
@@ -209,12 +208,16 @@ func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo
 	// There could be any number of instances out there with the same Name tag.  We're only interested in the one that's 'running'.
 	for _, res := range output.Reservations {
 		for _, inst := range res.Instances {
+			//fmt.Printf("Found Reservation: %s ID: %s State: %v\n", *res.ReservationId, *inst.InstanceId, inst.State.Name)
 			if inst.State.Name == types.InstanceStateNameRunning {
+				//fmt.Printf("Selecting instance Reservation: %s ID: %s State: %v\n", *res.ReservationId, *inst.InstanceId, inst.State.Name)
 				nodeInfo.Name = nodeName
-				nodeInfo.ID = *output.Reservations[0].Instances[0].InstanceId
+				nodeInfo.ID = *inst.InstanceId
 
 				am.FetchedNodesByName[nodeName] = nodeInfo
-				am.FetchedNodesById[*output.Reservations[0].Instances[0].InstanceId] = nodeInfo
+				am.FetchedNodesById[*inst.InstanceId] = nodeInfo
+
+				return nodeInfo, err
 			}
 		}
 	}

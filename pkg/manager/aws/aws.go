@@ -31,6 +31,7 @@ type AWSClusterManager struct {
 	k8sProviderName            string
 	scheduleWorkloadsOnCPNodes bool
 	domain                     string
+	dnsManager                 manager.DNSManager
 	verbose                    bool
 	Config                     aws.Config
 	Ec2Client                  *ec2.Client
@@ -43,7 +44,7 @@ type AWSClusterManager struct {
 	ClusterNameRegex           *regexp.Regexp
 }
 
-func NewAWSClusterManager(ctx context.Context, clusterName string, profile string) (am *AWSClusterManager, err error) {
+func NewAWSClusterManager(ctx context.Context, clusterName string, profile string, dnsManager manager.DNSManager, verbose bool) (am *AWSClusterManager, err error) {
 	var cfg aws.Config
 
 	if profile != "" {
@@ -81,6 +82,8 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 		clusterName:        clusterName,
 		cloudProviderName:  "aws",
 		k8sProviderName:    "talos",
+		dnsManager:         dnsManager,
+		verbose:            verbose,
 		Config:             cfg,
 		Ec2Client:          ec2Client,
 		ELBClient:          elbClient,
@@ -113,6 +116,10 @@ func (am *AWSClusterManager) ScheduleWorkloadsOnCPNodes() bool {
 
 func (am *AWSClusterManager) Verbose() bool {
 	return am.verbose
+}
+
+func (am *AWSClusterManager) DNSManager() manager.DNSManager {
+	return am.dnsManager
 }
 
 func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.ClusterInfo, err error) {

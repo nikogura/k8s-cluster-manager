@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/aws"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager/cloudflare"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -34,7 +35,7 @@ Convenience wrapper that calls Delete() and then Create().
 			log.Fatalf("Cannot list without a cluster name")
 		}
 
-		configBytes, patchBytes, nodeBytes, err := ConfigsFromVaultOrFile()
+		configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err := ConfigsFromVaultOrFile()
 		if err != nil {
 			log.Fatalf("Failed getting required node data: %s", err)
 		}
@@ -42,7 +43,8 @@ Convenience wrapper that calls Delete() and then Create().
 		switch cloudProvider {
 		case "aws":
 			profile := os.Getenv("AWS_PROFILE")
-			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile)
+			dnsManager := cloudflare.NewCloudFlareManager(cfZoneID, cfToken)
+			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile, dnsManager, verbose)
 			if err != nil {
 				log.Fatalf("Failed creating cluster manager: %s", err)
 			}

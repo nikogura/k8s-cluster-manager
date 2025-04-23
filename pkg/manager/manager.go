@@ -40,6 +40,12 @@ type K8sClusterManager interface {
 	UpdateNode(nodeName string) (err error)                 // Update Node.
 	DescribeNode(nodeName string) (info NodeInfo, err error)
 	DescribeCluster(clusterName string) (info ClusterInfo, err error)
+	DNSManager() (manager DNSManager)
+}
+
+type DNSManager interface {
+	RegisterNode(ctx context.Context, node ClusterNode, verbose bool) (err error)
+	DeregisterNode(ctx context.Context, nodeName string, verbose bool) (err error)
 }
 
 type ClusterInfo struct {

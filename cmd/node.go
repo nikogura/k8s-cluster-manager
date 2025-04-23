@@ -35,11 +35,11 @@ func init() {
 }
 
 // ConfigsFromVaultOrFile will return byte arrays representing the machine config, patch, and node config, pulled either from Vault (if -m is specified) or
-func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes []byte, err error) {
+func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes []byte, cfZoneID string, cfToken string, err error) {
 	hd, err := homedir.Dir()
 	if err != nil {
 		err = errors.Wrapf(err, "unable to look up homedir")
-		return configBytes, patchBytes, nodeBytes, err
+		return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 	}
 
 	var configDataFromSecret manager.ConfigData
@@ -50,7 +50,7 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 		tokBytes, err := os.ReadFile(tokenFile)
 		if err != nil {
 			err = errors.Wrapf(err, "No vault token found at %s", tokenFile)
-			return configBytes, patchBytes, nodeBytes, err
+			return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 		}
 
 		tokString := strings.TrimRight(string(tokBytes), "\n")
@@ -58,13 +58,13 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 		client, err := manager.NewVaultClient(tokString, verbose)
 		if err != nil {
 			err = errors.Wrapf(err, "failed creating vault client")
-			return configBytes, patchBytes, nodeBytes, err
+			return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 		}
 
 		configDataFromSecret, err = manager.ConfigsFromSecret(client, secretPath, clusterName, nodeRole, cloudProvider, verbose)
 		if err != nil {
 			err = errors.Wrapf(err, "Failed getting secrets")
-			return configBytes, patchBytes, nodeBytes, err
+			return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 		}
 	}
 
@@ -75,13 +75,13 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 		configBytes, err = os.ReadFile(machineConfigFile)
 		if err != nil {
 			err = errors.Wrapf(err, "Failed loading machine config file %s", machineConfigFile)
-			return configBytes, patchBytes, nodeBytes, err
+			return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 		}
 	}
 
 	if len(configBytes) == 0 {
 		err = errors.Wrapf(err, "Cannot proceed without a Talos machine configuration.")
-		return configBytes, patchBytes, nodeBytes, err
+		return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 	}
 
 	// Load Talos Machine Config Patch from Vault if a patch has not been provided manually but a secret path has.
@@ -92,7 +92,7 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 
 	if machineConfigPatch == "" {
 		err = errors.Wrapf(err, "Cannot proceed with out a talos machine config patch.")
-		return configBytes, patchBytes, nodeBytes, err
+		return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 	}
 
 	if nodeConfigFile == "" {
@@ -101,25 +101,25 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 		configBytes, err = os.ReadFile(nodeConfigFile)
 		if err != nil {
 			err = errors.Wrapf(err, "Failed loading node config file %s", machineConfigFile)
-			return configBytes, patchBytes, nodeBytes, err
+			return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 		}
 	}
 
 	if len(nodeBytes) == 0 {
 		err = errors.Wrapf(err, "Cannot proceed without a nodeconfiguration.")
-		return configBytes, patchBytes, nodeBytes, err
+		return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 	}
 
-	zoneIDFromEnv := os.Getenv(manager.CLOUDFLARE_ZONE_ID_ENV_VAR)
-	if zoneIDFromEnv == "" {
-		os.Setenv(manager.CLOUDFLARE_ZONE_ID_ENV_VAR, configDataFromSecret.CloudflareZoneID)
+	cfZoneID = os.Getenv(manager.CLOUDFLARE_ZONE_ID_ENV_VAR)
+	if cfZoneID == "" {
+		cfZoneID = configDataFromSecret.CloudflareZoneID
 	}
 
-	cfTokenFromEnv := os.Getenv("CLOUDFLARE_API_TOKEN")
-	if cfTokenFromEnv == "" {
-		os.Setenv(manager.CLOUDFLARE_API_TOKEN_ENV_VAR, configDataFromSecret.CloudflareApiToken)
+	cfToken = os.Getenv(manager.CLOUDFLARE_API_TOKEN_ENV_VAR)
+	if cfToken == "" {
+		cfToken = configDataFromSecret.CloudflareApiToken
 	}
 
-	return configBytes, patchBytes, nodeBytes, err
+	return configBytes, patchBytes, nodeBytes, cfZoneID, cfToken, err
 
 }

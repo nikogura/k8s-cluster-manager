@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/aws"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager/cloudflare"
 	"github.com/pkg/errors"
 	"log"
 	"os"
@@ -34,10 +35,16 @@ List nodes in a cluster.
 			log.Fatalf("Cannot list without a cluster name")
 		}
 
+		_, _, _, cfZoneID, cfToken, err := ConfigsFromVaultOrFile()
+		if err != nil {
+			log.Fatalf("Failed getting required node data: %s", err)
+		}
+
 		switch cloudProvider {
 		case "aws":
 			profile := os.Getenv("AWS_PROFILE")
-			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile)
+			dnsManager := cloudflare.NewCloudFlareManager(cfZoneID, cfToken)
+			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile, dnsManager, verbose)
 			if err != nil {
 				log.Fatalf("Failed creating cluster manager: %s", err)
 			}
