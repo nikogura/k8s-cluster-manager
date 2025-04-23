@@ -11,6 +11,9 @@ import (
 	"strings"
 )
 
+const CLOUDFLARE_ZONE_ID_ENV_VAR = "CLOUDFLARE_ZONE_ID"
+const CLOUDFLARE_API_TOKEN_ENV_VAR = "CLOUDFLARE_API_TOKEN"
+
 // VaultApiConfig creates a vault api config in a standard fashion
 func VaultApiConfig(address string) (config *api.Config, err error) {
 	// read the environment and use that over anything
@@ -118,7 +121,15 @@ func V2Path(path string) (v2Path string, err error) {
 	return v2Path, err
 }
 
-func ConfigsFromSecret(client *api.Client, mount string, clusterName string, nodeRole string, cloudProvider string, verbose bool) (config []byte, patch []byte, node []byte, err error) {
+type ConfigData struct {
+	TalosMachineConfig      []byte
+	TalosMachineConfigPatch []byte
+	NodeConfig              []byte
+	CloudflareApiToken      string
+	CloudflareZoneID        string
+}
+
+func ConfigsFromSecret(client *api.Client, mount string, clusterName string, nodeRole string, cloudProvider string, verbose bool) (data ConfigData, err error) {
 	secretPath := fmt.Sprintf("%s/cluster-%s-%s", mount, clusterName, nodeRole)
 	if verbose {
 		fmt.Printf("Loading machine config from %s\n", secretPath)
@@ -127,7 +138,7 @@ func ConfigsFromSecret(client *api.Client, mount string, clusterName string, nod
 	secretData, err := SecretData(client, secretPath, verbose)
 	if err != nil {
 		err = errors.Wrapf(err, "failed getting secret from path %s", secretPath)
-		return config, patch, node, err
+		return data, err
 	}
 
 	nodeKey := fmt.Sprintf("node-%s.yaml", cloudProvider)
@@ -135,44 +146,36 @@ func ConfigsFromSecret(client *api.Client, mount string, clusterName string, nod
 	c, ok := secretData["config.yaml"].(string)
 	if !ok {
 		err = errors.New("Could not extract bytes for config.yaml from secret")
-		return config, patch, node, err
+		return data, err
 	}
 
-	config = []byte(c)
+	data.TalosMachineConfig = []byte(c)
 
 	p, ok := secretData["patch.yaml"].(string)
 	if !ok {
 		err = errors.New("Could not extract bytes for patch.yaml from secret")
-		return config, patch, node, err
+		return data, err
 	}
 
-	patch = []byte(p)
+	data.TalosMachineConfigPatch = []byte(p)
 
 	n, ok := secretData[nodeKey].(string)
 	if !ok {
 		err = errors.New(fmt.Sprintf("Could not extract bytes for %s from secret", nodeKey))
-		return config, patch, node, err
+		return data, err
 	}
 
-	node = []byte(n)
+	data.NodeConfig = []byte(n)
 
-	//config, err = yaml.Marshal(secretData["config.yaml"])
-	//if err != nil {
-	//	err = errors.Wrapf(err, "failed marshalling secret data from path %s", secretPath)
-	//	return config, patch, node, err
-	//}
-	//
-	//patch, err = yaml.Marshal(secretData["patch.yaml"])
-	//if err != nil {
-	//	err = errors.Wrapf(err, "failed marshalling secret data from path %s", secretPath)
-	//	return config, patch, node, err
-	//}
-	//
-	//node, err = yaml.Marshal(secretData[nodeKey])
-	//if err != nil {
-	//	err = errors.Wrapf(err, "failed marshalling secret data from path %s", secretPath)
-	//	return config, patch, node, err
-	//}
+	zoneIDFromSecret, ok := secretData[CLOUDFLARE_ZONE_ID_ENV_VAR].(string)
+	if ok {
+		data.CloudflareZoneID = zoneIDFromSecret
+	}
 
-	return config, patch, node, err
+	cfTokenFromSecret, ok := secretData[CLOUDFLARE_API_TOKEN_ENV_VAR].(string)
+	if ok {
+		data.CloudflareApiToken = cfTokenFromSecret
+	}
+
+	return data, err
 }

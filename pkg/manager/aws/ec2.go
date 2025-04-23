@@ -135,7 +135,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	}
 
 	// Register Node with DNS
-	err = cloudflare.RegisterNode(node)
+	err = cloudflare.RegisterNode(am.Context, node, am.Verbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
 		return err
@@ -155,7 +155,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	err = cloudflare.DeRegisterNode(nodeName)
+	err = cloudflare.DeRegisterNode(am.Context, nodeName, am.Verbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed deregistering dns for %s", nodeName)
 		return err

@@ -35,7 +35,8 @@ The secret needs to contain:
 * *config.yaml* 
 * *patch.yaml*
 * *node-<CLOUD_PROVIDER>.yaml*
-
+* CLOUDFLARE_API_TOKEN
+* CLOUDFLARE_ZONE_ID
 
 ## Talos Machine Configuration
 This is the `controlplane.yaml` or `worker.yaml` produced from `talosctl`.

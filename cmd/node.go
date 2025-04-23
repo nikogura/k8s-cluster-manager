@@ -42,7 +42,7 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 		return configBytes, patchBytes, nodeBytes, err
 	}
 
-	var configBytesFromSecret, patchBytesFromSecret, nodeBytesFromSecret []byte
+	var configDataFromSecret manager.ConfigData
 
 	if secretPath != "" {
 		tokenFile := fmt.Sprintf("%s/.vault-token", hd)
@@ -61,7 +61,7 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 			return configBytes, patchBytes, nodeBytes, err
 		}
 
-		configBytesFromSecret, patchBytesFromSecret, nodeBytesFromSecret, err = manager.ConfigsFromSecret(client, secretPath, clusterName, nodeRole, cloudProvider, verbose)
+		configDataFromSecret, err = manager.ConfigsFromSecret(client, secretPath, clusterName, nodeRole, cloudProvider, verbose)
 		if err != nil {
 			err = errors.Wrapf(err, "Failed getting secrets")
 			return configBytes, patchBytes, nodeBytes, err
@@ -70,7 +70,7 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 
 	// if a file is has not been specified, and a secret path has, we'll try to get the data out of vault.
 	if machineConfigFile == "" {
-		configBytes = configBytesFromSecret
+		configBytes = configDataFromSecret.TalosMachineConfig
 	} else { // Alternately, Load the talos config from a file
 		configBytes, err = os.ReadFile(machineConfigFile)
 		if err != nil {
@@ -87,7 +87,7 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 	// Load Talos Machine Config Patch from Vault if a patch has not been provided manually but a secret path has.
 	// This is a little magic as the Talos patch loader expects to get yaml as a string or in a filename, so we only handle the case where there is no patch provided, in which case we load it from the secret.
 	if machineConfigPatch == "" {
-		machineConfigPatch = string(patchBytesFromSecret)
+		machineConfigPatch = string(configDataFromSecret.TalosMachineConfigPatch)
 	}
 
 	if machineConfigPatch == "" {
@@ -96,7 +96,7 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 	}
 
 	if nodeConfigFile == "" {
-		nodeBytes = nodeBytesFromSecret
+		nodeBytes = configDataFromSecret.NodeConfig
 	} else {
 		configBytes, err = os.ReadFile(nodeConfigFile)
 		if err != nil {
@@ -108,6 +108,16 @@ func ConfigsFromVaultOrFile() (configBytes []byte, patchBytes []byte, nodeBytes 
 	if len(nodeBytes) == 0 {
 		err = errors.Wrapf(err, "Cannot proceed without a nodeconfiguration.")
 		return configBytes, patchBytes, nodeBytes, err
+	}
+
+	zoneIDFromEnv := os.Getenv(manager.CLOUDFLARE_ZONE_ID_ENV_VAR)
+	if zoneIDFromEnv == "" {
+		os.Setenv(manager.CLOUDFLARE_ZONE_ID_ENV_VAR, configDataFromSecret.CloudflareZoneID)
+	}
+
+	cfTokenFromEnv := os.Getenv("CLOUDFLARE_API_TOKEN")
+	if cfTokenFromEnv == "" {
+		os.Setenv(manager.CLOUDFLARE_API_TOKEN_ENV_VAR, configDataFromSecret.CloudflareApiToken)
 	}
 
 	return configBytes, patchBytes, nodeBytes, err
