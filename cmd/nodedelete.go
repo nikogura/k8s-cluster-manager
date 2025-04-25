@@ -40,8 +40,9 @@ Delete a Kubernetes Node from a Cluster.
 		switch cloudProvider {
 		case "aws":
 			profile := os.Getenv("AWS_PROFILE")
+			role := os.Getenv("AWS_ROLE")
 			dnsManager := cloudflare.NewCloudFlareManager(cfZoneID, cfToken)
-			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile, dnsManager, verbose)
+			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
 			if err != nil {
 				log.Fatalf("Failed creating cluster manager: %s", err)
 			}

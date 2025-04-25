@@ -5,16 +5,20 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"math/rand"
 	"os"
 	"regexp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strconv"
 )
 
 func init() {
@@ -44,16 +48,18 @@ type AWSClusterManager struct {
 	ClusterNameRegex           *regexp.Regexp
 }
 
-func NewAWSClusterManager(ctx context.Context, clusterName string, profile string, dnsManager manager.DNSManager, verbose bool) (am *AWSClusterManager, err error) {
+func NewAWSClusterManager(ctx context.Context, clusterName string, profile string, role string, dnsManager manager.DNSManager, verbose bool) (am *AWSClusterManager, err error) {
+	_ = log.FromContext(ctx)
 	var cfg aws.Config
 
+	// if we are supplied a profile, use it to set up the aws config
 	if profile != "" {
 		cfg, err = config.LoadDefaultConfig(ctx, config.WithSharedConfigProfile(profile))
 		if err != nil {
 			err = errors.Wrapf(err, "failed creating aws config")
 			return am, err
 		}
-	} else {
+	} else { // if not, use the defaults
 		cfg, err = config.LoadDefaultConfig(ctx)
 		if err != nil {
 			err = errors.Wrapf(err, "failed creating aws config")
@@ -61,16 +67,40 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 		}
 	}
 
-	_ = log.FromContext(ctx)
+	// If we have a role to assume, assume it
+	if role != "" {
+		sourceAccount := sts.NewFromConfig(cfg)
 
+		assumeRoleInput := &sts.AssumeRoleInput{
+			RoleArn:         aws.String(role),
+			RoleSessionName: aws.String("k8s-cluster-manager-" + strconv.Itoa(10000+rand.Intn(25000))),
+		}
+
+		// Assume the role
+		stsResp, err := sourceAccount.AssumeRole(ctx, assumeRoleInput)
+		if err != nil {
+			err = errors.Wrapf(err, "failed assuming role %s", role)
+			return am, err
+		}
+
+		// pull the creds out of the role assumption response, and use that to make a new config
+		cfg, err = config.LoadDefaultConfig(ctx, config.WithRegion(os.Getenv("AWS_REGION")), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*stsResp.Credentials.AccessKeyId, *stsResp.Credentials.SecretAccessKey, *stsResp.Credentials.SessionToken)))
+		if err != nil {
+			err = errors.Wrapf(err, "failed assuming role %s", role)
+			return am, err
+		}
+	}
+
+	// Create AWS clients
+	ec2Client := ec2.NewFromConfig(cfg)
+	elbClient := elasticloadbalancingv2.NewFromConfig(cfg)
+
+	// Create k8s clients
 	kubeClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
 	if err != nil {
 		err = errors.Wrapf(err, "failed creating k8s clients")
 		return am, err
 	}
-
-	ec2Client := ec2.NewFromConfig(cfg)
-	elbClient := elasticloadbalancingv2.NewFromConfig(cfg)
 
 	re, err := regexp.Compile(fmt.Sprintf(".*%s.*", clusterName))
 	if err != nil {
