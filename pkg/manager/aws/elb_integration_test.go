@@ -29,7 +29,7 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 			assert.True(t, len(lbs) > 0, "No load balancers returned")
 
 			for _, lb := range lbs {
-				fmt.Printf("LB: %s\n", lb.Name)
+				fmt.Printf("LB: %s API: %v\n", lb.Name, lb.IsApiServer)
 			}
 
 		})

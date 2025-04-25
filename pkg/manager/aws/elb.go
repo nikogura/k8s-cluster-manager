@@ -213,22 +213,17 @@ func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) 
 
 	// Add to all TG's and ports for all LB's for the cluster for workers
 	for _, lb := range lbs {
-		// If this is a CP node, and we're looking at the  the apiserver LB
-		if node.Role() == manager.NODE_ROLE_CP && lb.IsApiServer {
-			// we'll still loop through the list of tg's, even though there should be only 1
-			for _, tg := range lb.TargetGroups {
-				err = am.RegisterTarget(tg.ID, node.ID(), tg.Port)
-			}
-			continue // move on.  We've handled the apiserver lb
+		// If we're looking at the apiserver LB, and this is not a CP node, move on.
+		if node.Role() != manager.NODE_ROLE_CP && lb.IsApiServer {
+			continue // skip registration
 		}
 
-		// If we don't schedule workloads on CP nodes, move on.
-		if !am.ScheduleWorkloadsOnCPNodes() && node.Role() == manager.NODE_ROLE_CP {
-
-			continue
+		// If it's not an apiserver LB, and this is a CP node, and we don't schedule workloads here, move on
+		if !lb.IsApiServer && node.Role() == manager.NODE_ROLE_CP && !am.ScheduleWorkloadsOnCPNodes() {
+			continue // skip registration
 		}
 
-		// Else, for every non apiserver lb, register this node as a target.
+		// Register the node.
 		for _, tg := range lb.TargetGroups {
 			// Register the node in the TargetGroup
 			manager.VerboseOutput(am.Verbose(), "Registering Node %s with Target Group %s on Port %d\n", node.ID(), tg.ID, tg.Port)
