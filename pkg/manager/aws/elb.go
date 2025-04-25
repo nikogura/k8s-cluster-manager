@@ -66,7 +66,8 @@ func (am *AWSClusterManager) GetClusterLBs() (lbs []manager.LBInfo, err error) {
 		// Describe the tags
 		tagOutput, err := am.ELBClient.DescribeTags(am.Context, tagInput)
 		if err != nil {
-			err = errors.Wrapf(err, "failed fetching ")
+			err = errors.Wrapf(err, "failed fetching tags")
+			return lbs, err
 		}
 
 		apiserverRegex := regexp.MustCompile(`.*apiserver.*`)
