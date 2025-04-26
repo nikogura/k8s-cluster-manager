@@ -2,6 +2,7 @@ package aws
 
 import (
 	"github.com/google/go-cmp/cmp"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager/aws"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"github.com/stretchr/testify/assert"
 	"strconv"
@@ -29,7 +30,7 @@ func TestTargetGroupName(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := TargetGroupName(tc.name, tc.tls)
+			actual := aws.TargetGroupName(tc.name, tc.tls)
 			assert.Equal(t, tc.expected, actual, "actual target group name fails to meet expectations")
 		})
 	}
@@ -60,7 +61,7 @@ func TestLoadBalancerName(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		actual, err := LoadBalancerName(tc.name, tc.lbType)
+		actual, err := aws.LoadBalancerName(tc.name, tc.lbType)
 		if err != nil {
 			t.Errorf("failed generating lb name: %s", err)
 		}
