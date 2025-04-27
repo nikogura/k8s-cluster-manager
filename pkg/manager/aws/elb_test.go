@@ -95,7 +95,7 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 		expect []manager.LBInfo
 	}{
 		{
-			name: "test",
+			name: "Get Cluster LBs",
 			client: func(t *testing.T) AWSClusterManager_GetClusterLBsAPI {
 				return mockAWSClusterManager_GetClusterLBsAPI(
 					func() (lbs []manager.LBInfo, err error) {
@@ -121,7 +121,7 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		t.Run(strings.Join([]string{strconv.Itoa(i), tc.name}, ". "), func(t *testing.T) {
+		t.Run(strings.Join([]string{strconv.Itoa(i + 1), tc.name}, "."), func(t *testing.T) {
 			got, err := AWSClusterManager_GetClusterLBs(tc.client(t))
 			if err != nil {
 				t.Fatalf("no error expected with mock, got %v", err)
