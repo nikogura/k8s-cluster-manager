@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager/kubernetes"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/talos"
 	"github.com/pkg/errors"
 	"sort"
@@ -179,7 +180,10 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	// TODO delete node in k8s
+	err = kubernetes.DeleteNode(am.Context, nodeName, am.Verbose())
+	if err != nil {
+		err = errors.Wrapf(err, "failed deleting node %s from k8s", nodeName)
+	}
 
 	fmt.Printf("Node %s (%s) Terminated\n", nodeName, nodeInfo.ID)
 
