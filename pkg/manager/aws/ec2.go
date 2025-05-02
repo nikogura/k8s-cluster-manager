@@ -53,7 +53,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 			DeviceName: aws.String("/dev/xvda"),
 			Ebs: &types.EbsBlockDevice{
 				DeleteOnTermination: aws.Bool(true),
-				//Encrypted:           nil,
+				Encrypted:           aws.Bool(true),
 				//Iops:                nil,
 				//KmsKeyId:            nil,
 				//OutpostArn:          nil,
