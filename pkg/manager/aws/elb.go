@@ -204,7 +204,7 @@ func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port 
 }
 
 func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) {
-	manager.VerboseOutput(am.Verbose(), "Registering Node %s\n", node.Name())
+	manager.VerboseOutput(am.Verbose(), "Registering Node %s with role %s\n", node.Name(), node.Role())
 
 	lbs, err := am.GetClusterLBs()
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const NODE_ROLE_CP = "cp"
+const NODE_ROLE_CP = "controlplane"
 const NODE_ROLE_WORKER = "worker"
 
 /*
