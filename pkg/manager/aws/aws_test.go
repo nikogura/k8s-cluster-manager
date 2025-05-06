@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"log"
 	"os"
 	"testing"
@@ -9,11 +10,13 @@ import (
 
 var awsClusterManager *AWSClusterManager
 var ctx context.Context
+
 var awsProfile string
 var clusterName string
 var tmpDir string
 
 func TestMain(m *testing.M) {
+
 	setUp()
 
 	code := m.Run()
@@ -33,10 +36,25 @@ func setUp() {
 
 	tmpDir = tdir
 
-	awsProfile = os.Getenv("AWS_PROFILE")
-	clusterName = os.Getenv("CLUSTER_NAME")
+	var awsProfile string
+	if ap, ok := os.LookupEnv("AWS_PROFILE"); ok {
+		awsProfile = ap
+	} //else {
+	//	log.Printf("%s not set\n", "AWS_PROFILE")
+	//	awsProfile = "blah"
+	//}
 
-	cm, err := NewAWSClusterManager(ctx, clusterName, awsProfile)
+	var clusterName string
+	if cn, ok := os.LookupEnv("CLUSTER_NAME"); ok {
+		clusterName = cn
+	} //else {
+	//	log.Printf("%s not set\n", "CLUSTER_NAME")
+	//	clusterName = "blee"
+	//}
+
+	dnsManager := manager.DNSManagerStruct{}
+
+	cm, err := NewAWSClusterManager(ctx, clusterName, awsProfile, dnsManager, true)
 	if err != nil {
 		log.Fatalf("Couldn't create aws cluster manager: %s", err)
 	}
@@ -47,6 +65,8 @@ func setUp() {
 
 func tearDown() {
 	if _, err := os.Stat(tmpDir); err == nil {
-		os.RemoveAll(tmpDir)
+		if err := os.RemoveAll(tmpDir); err != nil {
+			log.Fatalf("couldn't remove temporary directory: %s", err)
+		}
 	}
 }

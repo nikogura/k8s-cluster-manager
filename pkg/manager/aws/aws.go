@@ -50,7 +50,7 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 	if profile != "" {
 		cfg, err = config.LoadDefaultConfig(ctx, config.WithSharedConfigProfile(profile))
 		if err != nil {
-			err = errors.Wrapf(err, "failed creating aws config")
+			err = errors.Wrapf(err, "failed creating aws config with shared profile")
 			return am, err
 		}
 	} else {
@@ -63,7 +63,9 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 
 	_ = log.FromContext(ctx)
 
+	//TODO: use something other than GetConfigOrDie, or mock this response
 	kubeClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
+	logrus.Print("Made it")
 	if err != nil {
 		err = errors.Wrapf(err, "failed creating k8s clients")
 		return am, err
@@ -188,4 +190,13 @@ func LoadBalancerName(clusterName string, lbType string) (lbName string, err err
 	}
 
 	return lbName, err
+}
+
+type dnsManager struct{}
+
+func (dnsManager) RegisterNode(ctx context.Context, node manager.ClusterNode, verbose bool) (err error) {
+	return err
+}
+func (dnsManager) DeregisterNode(ctx context.Context, nodeName string, verbose bool) (err error) {
+	return err
 }
