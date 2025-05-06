@@ -1,7 +1,10 @@
+//go:build integration
+
 package aws
 
 import (
 	"context"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"log"
 	"os"
 	"testing"
@@ -33,6 +36,31 @@ func setUp() {
 	}
 
 	tmpDir = tdir
+
+	var awsProfile string
+	if ap, ok := os.LookupEnv("AWS_PROFILE"); ok {
+		awsProfile = ap
+	} //else {
+	//	log.Printf("%s not set\n", "AWS_PROFILE")
+	//	awsProfile = "blah"
+	//}
+
+	var clusterName string
+	if cn, ok := os.LookupEnv("CLUSTER_NAME"); ok {
+		clusterName = cn
+	} //else {
+	//	log.Printf("%s not set\n", "CLUSTER_NAME")
+	//	clusterName = "blee"
+	//}
+
+	dnsManager := manager.DNSManagerStruct{}
+
+	cm, err := NewAWSClusterManager(ctx, clusterName, awsProfile, dnsManager, true)
+	if err != nil {
+		log.Fatalf("couldn't create aws cluster manager: %s", err)
+	}
+
+	awsClusterManager = cm
 
 }
 

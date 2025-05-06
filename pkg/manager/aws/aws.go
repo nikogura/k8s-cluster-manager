@@ -63,7 +63,7 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 
 	_ = log.FromContext(ctx)
 
-	//TODO: use something other than GetConfigOrDie, or mock this response
+	//TODO: use something other than GetConfigOrDie, or mock this response (this is just a regular function, not a method)
 	kubeClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
 	logrus.Print("Made it")
 	if err != nil {
