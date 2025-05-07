@@ -79,7 +79,7 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 			name: "Get Cluster LBs",
 			acm: AWSClusterManager{
 				Name:      TEST_ELB_CLUSTER_TAG_VALUE,
-				ELBClient: mockELBClient{},
+				ELBClient: MockELBClient{},
 			},
 			// expected results from test case
 			expect: []manager.LBInfo{

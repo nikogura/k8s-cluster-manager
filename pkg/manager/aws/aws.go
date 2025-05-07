@@ -36,7 +36,6 @@ type AWSClusterManager struct {
 	Config                     aws.Config
 	Ec2Client                  *ec2.Client
 	ELBClient                  ELBClient
-	ELBClientLiteral           *elasticloadbalancingv2.Client
 	Context                    context.Context
 	Profile                    string
 	KubeClient                 client.Client
