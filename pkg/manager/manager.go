@@ -48,6 +48,15 @@ type DNSManager interface {
 	DeregisterNode(ctx context.Context, nodeName string, verbose bool) (err error)
 }
 
+type DNSManagerStruct struct{}
+
+func (DNSManagerStruct) RegisterNode(ctx context.Context, node ClusterNode, verbose bool) (err error) {
+	return err
+}
+func (DNSManagerStruct) DeregisterNode(ctx context.Context, nodeName string, verbose bool) (err error) {
+	return err
+}
+
 type ClusterInfo struct {
 	Name                       string
 	Provider                   string
