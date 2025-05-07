@@ -29,9 +29,6 @@ type ELBClient interface {
 	DeregisterTargets(ctx context.Context, params *elasticloadbalancingv2.DeregisterTargetsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DeregisterTargetsOutput, error)
 }
 
-//var blah = elasticloadbalancingv2.Client.RegisterTargets
-
-/*
 func (am *AWSClusterManager) GetLB(lbName string) (lbOutput *elasticloadbalancingv2.DescribeLoadBalancersOutput, err error) {
 
 	// DescribeLoadBalancers gives all by default, or filters by name or arn
@@ -50,7 +47,6 @@ func (am *AWSClusterManager) GetLB(lbName string) (lbOutput *elasticloadbalancin
 
 	return lbOutput, err
 }
-*/
 
 func (am *AWSClusterManager) GetClusterLBs() (lbs []manager.LBInfo, err error) {
 	/*

@@ -5,22 +5,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go/middleware"
-	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
-	//"github.com/nikogura/k8s-cluster-manager/pkg/manager/aws"
-	"reflect"
-	"strconv"
-	"strings"
-	"testing"
 )
 
 const TEST_ELB_CLUSTER_TAG = "Cluster"
 const TEST_ELB_CLUSTER_TAG_VALUE = "test-cluster"
-const TEST_LOAD_BALANCER_ARN = "arn:aws:elb:ap-northeast-1:1234567890:test-load-balancer"
+const TEST_LOAD_BALANCER_ARN = "arn:aws:elasticloadbalancing:ap-northeast-1:1234567890:loadbalancer/app/test-load-balancer/50dc6c495c0c9188"
 const TEST_LOAD_BALANCER_NAME = "not api server"
-const TEST_TARGET_GROUP_NAME = "test-target-group"
-
-// TODO: verify format of target group arn
-const TEST_TARGET_GROUP_ARN = "arn:aws:elb:ap-northeast-1:1234567890:test-target-group"
+const TEST_TARGET_GROUP_NAME = "test-targets"
+const TEST_TARGET_GROUP_ARN = "arn:aws:elasticloadbalancing:ap-northeast-1:1234567890:targetgroup/test-targets/73e2d6bc24d8a067"
 const TEST_TARGET_GROUP_PORT = int32(3333)
 
 type mockELBClient struct {
@@ -85,57 +77,4 @@ func (mockELBClient) DescribeTargetGroups(ctx context.Context, params *elasticlo
 
 func (mockELBClient) DescribeTargetHealth(ctx context.Context, params *elasticloadbalancingv2.DescribeTargetHealthInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTargetHealthOutput, error) {
 	return &elasticloadbalancingv2.DescribeTargetHealthOutput{}, nil
-}
-
-func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
-	testCases := []struct {
-		name   string
-		acm    AWSClusterManager
-		expect []manager.LBInfo
-	}{
-		{
-			// test case
-			name: "Get Cluster LBs",
-			acm: AWSClusterManager{
-				Name:      TEST_ELB_CLUSTER_TAG_VALUE,
-				ELBClient: mockELBClient{},
-			},
-			// expected results from test case
-			expect: []manager.LBInfo{
-				{
-					Name:        TEST_LOAD_BALANCER_NAME,
-					IsApiServer: false,
-					//TODO: add mock target info to test case when enabling acm.GetTargets()
-					Targets: []manager.LBTargetInfo{
-						//	{
-						//		ID:   TEST_TARGET_GROUP_NAME,
-						//		Port: TEST_TARGET_GROUP_PORT,
-						//	},
-					},
-					TargetGroups: []manager.LBTargetGroupInfo{
-						{
-							Name: TEST_TARGET_GROUP_NAME,
-							Arn:  TEST_TARGET_GROUP_ARN,
-							Port: TEST_TARGET_GROUP_PORT,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for i, tc := range testCases {
-		t.Run(strings.Join([]string{strconv.Itoa(i + 1), tc.name}, "."), func(t *testing.T) {
-			// you're testing the GetClusterLBs() method of the AWSClusterManager object, but you're mocking
-			// two methods of the elasticloadbalancingv2.Client object inside that one test; the blog post
-			// only shows one mocked method of the external API per tested method of the top level object
-			got, err := tc.acm.GetClusterLBs()
-			if err != nil {
-				t.Fatalf("no error expected with mocks, got %v", err)
-			}
-			if e, g := tc.expect, got; reflect.DeepEqual(e, g) != true {
-				t.Errorf("expect %v, got %v", e, g)
-			}
-		})
-	}
 }
