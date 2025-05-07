@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"log"
 	"os"
 	"testing"
@@ -23,6 +24,15 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+type dnsManager struct{}
+
+func (dnsManager) RegisterNode(ctx context.Context, node manager.ClusterNode, verbose bool) (err error) {
+	return err
+}
+func (dnsManager) DeregisterNode(ctx context.Context, nodeName string, verbose bool) (err error) {
+	return err
+}
+
 func setUp() {
 	ctx = context.Background()
 
@@ -35,8 +45,9 @@ func setUp() {
 
 	awsProfile = os.Getenv("AWS_PROFILE")
 	clusterName = os.Getenv("CLUSTER_NAME")
+	dm := dnsManager{}
 
-	cm, err := NewAWSClusterManager(ctx, clusterName, awsProfile)
+	cm, err := NewAWSClusterManager(ctx, clusterName, awsProfile, dm, true)
 	if err != nil {
 		log.Fatalf("Couldn't create aws cluster manager: %s", err)
 	}

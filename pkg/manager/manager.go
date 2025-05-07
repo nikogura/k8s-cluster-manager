@@ -70,14 +70,14 @@ type LBInfo struct {
 
 type LBTargetGroupInfo struct {
 	Name string
-	ID   string
-	Port int
+	Arn  string
+	Port int32
 }
 
 type LBTargetInfo struct {
 	ID    string
 	Name  string
-	Port  int
+	Port  int32
 	State string
 }
 

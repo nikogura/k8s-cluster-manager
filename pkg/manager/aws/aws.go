@@ -26,7 +26,7 @@ func init() {
 }
 
 type AWSClusterManager struct {
-	clusterName                string
+	Name                       string
 	cloudProviderName          string
 	k8sProviderName            string
 	scheduleWorkloadsOnCPNodes bool
@@ -35,7 +35,8 @@ type AWSClusterManager struct {
 	verbose                    bool
 	Config                     aws.Config
 	Ec2Client                  *ec2.Client
-	ELBClient                  *elasticloadbalancingv2.Client
+	ELBClient                  ELBClient
+	ELBClientLiteral           *elasticloadbalancingv2.Client
 	Context                    context.Context
 	Profile                    string
 	KubeClient                 client.Client
@@ -79,7 +80,7 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 	}
 
 	am = &AWSClusterManager{
-		clusterName:        clusterName,
+		Name:               clusterName,
 		cloudProviderName:  "aws",
 		k8sProviderName:    "talos",
 		dnsManager:         dnsManager,
@@ -99,7 +100,7 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 }
 
 func (am *AWSClusterManager) ClusterName() string {
-	return am.clusterName
+	return am.Name
 }
 
 func (am *AWSClusterManager) CloudProviderName() string {
