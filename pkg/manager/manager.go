@@ -48,6 +48,15 @@ type DNSManager interface {
 	DeregisterNode(ctx context.Context, nodeName string, verbose bool) (err error)
 }
 
+type DNSManagerStruct struct{}
+
+func (DNSManagerStruct) RegisterNode(ctx context.Context, node ClusterNode, verbose bool) (err error) {
+	return err
+}
+func (DNSManagerStruct) DeregisterNode(ctx context.Context, nodeName string, verbose bool) (err error) {
+	return err
+}
+
 type ClusterInfo struct {
 	Name                       string
 	Provider                   string
@@ -70,14 +79,14 @@ type LBInfo struct {
 
 type LBTargetGroupInfo struct {
 	Name string
-	ID   string
-	Port int
+	Arn  string
+	Port int32
 }
 
 type LBTargetInfo struct {
 	ID    string
 	Name  string
-	Port  int
+	Port  int32
 	State string
 }
 

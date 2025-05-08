@@ -4,6 +4,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+
+	//"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"context"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"github.com/pkg/errors"
 	"regexp"
@@ -16,6 +19,15 @@ const TLS_INGRESS_PORT_INT = 30443
 const CLEARTEXT_INGRESS_PORT_EXT = 31080
 const TLS_INGRESS_PORT_EXT = 31443
 const ELB_CLUSTER_TAG = "Cluster"
+
+type ELBClient interface {
+	DescribeLoadBalancers(ctx context.Context, params *elasticloadbalancingv2.DescribeLoadBalancersInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeLoadBalancersOutput, error)
+	DescribeTags(ctx context.Context, params *elasticloadbalancingv2.DescribeTagsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTagsOutput, error)
+	DescribeTargetGroups(ctx context.Context, params *elasticloadbalancingv2.DescribeTargetGroupsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTargetGroupsOutput, error)
+	DescribeTargetHealth(ctx context.Context, params *elasticloadbalancingv2.DescribeTargetHealthInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTargetHealthOutput, error)
+	RegisterTargets(ctx context.Context, params *elasticloadbalancingv2.RegisterTargetsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.RegisterTargetsOutput, error)
+	DeregisterTargets(ctx context.Context, params *elasticloadbalancingv2.DeregisterTargetsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DeregisterTargetsOutput, error)
+}
 
 func (am *AWSClusterManager) GetLB(lbName string) (lbOutput *elasticloadbalancingv2.DescribeLoadBalancersOutput, err error) {
 
@@ -108,27 +120,28 @@ func (am *AWSClusterManager) GetClusterLBs() (lbs []manager.LBInfo, err error) {
 							err = errors.Wrapf(err, "failed fetching tags for %s", tgArn)
 							return lbs, err
 						}
-						for _, tag := range td.Tags {
-							if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == am.ClusterName() {
-								// Record the Target Group info
-								tgInfo := manager.LBTargetGroupInfo{
-									Name: *tg.TargetGroupName,
-									ID:   *tg.TargetGroupArn,
-									Port: int(*tg.Port),
-								}
-								lbInfo.TargetGroups = append(lbInfo.TargetGroups, tgInfo)
-
-								// get the targets
-								targets, err := am.GetTargets(*tg.TargetGroupName)
-								if err != nil {
-									err = errors.Wrapf(err, "failed getting target %s", *tg.TargetGroupName)
-									return lbs, err
-								}
-
-								lbInfo.Targets = targets
-
-							}
+						// already inside this loop
+						//for _, tag := range td.Tags {
+						//if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == am.ClusterName() {
+						// Record the Target Group info
+						tgInfo := manager.LBTargetGroupInfo{
+							Name: *tg.TargetGroupName,
+							Arn:  *tg.TargetGroupArn,
+							Port: int32(*tg.Port),
 						}
+						lbInfo.TargetGroups = append(lbInfo.TargetGroups, tgInfo)
+
+						// get the targets
+						targets, err := am.GetTargets(*tg.TargetGroupName)
+						if err != nil {
+							err = errors.Wrapf(err, "failed getting target %s", *tg.TargetGroupName)
+							return lbs, err
+						}
+
+						lbInfo.Targets = targets
+
+						//}
+						//}
 					}
 
 					// add it to the pile
@@ -141,6 +154,7 @@ func (am *AWSClusterManager) GetClusterLBs() (lbs []manager.LBInfo, err error) {
 	return lbs, err
 }
 
+/*
 func (am *AWSClusterManager) CreateLB() (err error) {
 	// TODO implement CreateLB()
 	return err
@@ -155,6 +169,7 @@ func (am *AWSClusterManager) UpdateLB() (err error) {
 	// TODO implement UpdataLB()
 	return err
 }
+*/
 
 func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err error) {
 	manager.VerboseOutput(am.Verbose(), "Deregistering node %s from load balancers in cluster %s \n", nodeName, am.ClusterName())
@@ -169,10 +184,10 @@ func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err
 	for _, lb := range lbs {
 		for _, tg := range lb.TargetGroups {
 			// Register the node in the TargetGroup
-			manager.VerboseOutput(am.Verbose(), "Degistering Node %s with Target Group %s on Port %d\n", nodeName, tg.ID, tg.Port)
-			err = am.DeregisterTarget(tg.ID, nodeID, tg.Port)
+			manager.VerboseOutput(am.Verbose(), "Degistering Node %s with Target Group %s on Port %d\n", nodeName, tg.Arn, tg.Port)
+			err = am.DeregisterTarget(tg.Arn, nodeID, tg.Port)
 			if err != nil {
-				err = errors.Wrapf(err, "failed deregistering %s on tg %s", nodeName, tg.ID)
+				err = errors.Wrapf(err, "failed deregistering %s on tg %s", nodeName, tg.Arn)
 				return err
 			}
 		}
@@ -181,7 +196,7 @@ func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err
 	return err
 }
 
-func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port int) (err error) {
+func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port int32) (err error) {
 	p := int32(port)
 
 	input := &elasticloadbalancingv2.DeregisterTargetsInput{
@@ -227,10 +242,10 @@ func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) 
 		// Register the node.
 		for _, tg := range lb.TargetGroups {
 			// Register the node in the TargetGroup
-			manager.VerboseOutput(am.Verbose(), "Registering Node %s with Target Group %s on Port %d\n", node.ID(), tg.ID, tg.Port)
-			err = am.RegisterTarget(tg.ID, node.ID(), tg.Port)
+			manager.VerboseOutput(am.Verbose(), "Registering Node %s with Target Group %s on Port %d\n", node.ID(), tg.Arn, tg.Port)
+			err = am.RegisterTarget(tg.Arn, node.ID(), tg.Port)
 			if err != nil {
-				err = errors.Wrapf(err, "failed registering %s on tg %s", node.ID(), tg.ID)
+				err = errors.Wrapf(err, "failed registering %s on tg %s", node.ID(), tg.Arn)
 				return err
 			}
 		}
@@ -239,7 +254,7 @@ func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) 
 	return err
 }
 
-func (am *AWSClusterManager) RegisterTarget(tgARN string, nodeID string, port int) (err error) {
+func (am *AWSClusterManager) RegisterTarget(tgARN string, nodeID string, port int32) (err error) {
 	p := int32(port)
 
 	input := &elasticloadbalancingv2.RegisterTargetsInput{
@@ -345,7 +360,7 @@ func (am *AWSClusterManager) GetTargets(tgName string) (targets []manager.LBTarg
 		info := manager.LBTargetInfo{
 			ID:    *t.Target.Id,
 			Name:  nodeInfo.Name,
-			Port:  int(*t.Target.Port),
+			Port:  int32(int(*t.Target.Port)),
 			State: string(t.TargetHealth.State),
 		}
 
