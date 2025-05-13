@@ -59,6 +59,11 @@ Create a new Kubernetes Node
 				log.Fatalf("Failed loading node config %s: %s", nodeConfigFile, err)
 			}
 
+			// Override Node Type if provided
+			if nodeType != "" {
+				nodeConfig.InstanceType = nodeType
+			}
+
 			// Error out if we don't get a node config containing data.
 			if reflect.DeepEqual(nodeConfig, aws.AWSNodeConfig{}) {
 				log.Fatalf("No Node Config.  Cannot continue.")

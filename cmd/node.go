@@ -15,6 +15,7 @@ import (
 
 var nodeName string
 var nodeRole string
+var nodeType string
 
 // nodeCmd represents the node command
 var nodeCmd = &cobra.Command{
@@ -32,6 +33,7 @@ func init() {
 
 	nodeCmd.PersistentFlags().StringVarP(&nodeName, "name", "n", "", "Node Name")
 	nodeCmd.PersistentFlags().StringVarP(&nodeRole, "role", "r", "worker", "Node Role")
+	nodeCmd.PersistentFlags().StringVarP(&nodeType, "type", "t", "", "Node Type")
 }
 
 // ConfigsFromVaultOrFile will return byte arrays representing the machine config, patch, and node config, pulled either from Vault (if -m is specified) or
