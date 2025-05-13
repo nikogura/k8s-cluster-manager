@@ -29,23 +29,46 @@ func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 }
 
+//type AWSClusterManager struct {
+//	Name                       string
+//	cloudProviderName          string
+//	k8sProviderName            string
+//	scheduleWorkloadsOnCPNodes bool
+//	Domain                     string
+//	DnsManager                 manager.DNSManager
+//	GetVerbose                    bool
+//	Config                     aws.Config
+//	//TODO: delete the literal ec2 client after mocks are complete
+//	Ec2ClientLiteral   *ec2.Client
+//	Ec2Client          Ec2Client
+//	ELBClient          ELBClient
+//	Context            context.Context
+//	Profile            string
+//	KubeClient         client.Client
+//	FetchedNodesById   map[string]manager.NodeInfo
+//	FetchedNodesByName map[string]manager.NodeInfo
+//	ClusterNameRegex   *regexp.Regexp
+//}
+
 type AWSClusterManager struct {
 	Name                       string
-	cloudProviderName          string
-	k8sProviderName            string
-	scheduleWorkloadsOnCPNodes bool
-	domain                     string
-	dnsManager                 manager.DNSManager
-	verbose                    bool
+	CloudProviderName          string
+	K8sProviderName            string
+	ScheduleWorkloadsOnCPNodes bool
+	Domain                     string
+	DnsManager                 manager.DNSManager
+	Verbose                    bool
 	Config                     aws.Config
-	Ec2Client                  *ec2.Client
-	ELBClient                  ELBClient
-	Context                    context.Context
-	Profile                    string
-	KubeClient                 client.Client
-	FetchedNodesById           map[string]manager.NodeInfo
-	FetchedNodesByName         map[string]manager.NodeInfo
-	ClusterNameRegex           *regexp.Regexp
+	//TODO: delete the literal ec2 client after mocks are complete
+	//Ec2ClientLiteral   *ec2.Client
+	Ec2Client          Ec2Client
+	ELBClient          ELBClient
+	Context            context.Context
+	Profile            string
+	KubeClient         client.Client
+	FetchedNodesById   map[string]manager.NodeInfo
+	FetchedNodesByName map[string]manager.NodeInfo
+	ClusterNameRegex   *regexp.Regexp
 }
 
 func NewAWSClusterManager(ctx context.Context, clusterName string, profile string, role string, dnsManager manager.DNSManager, verbose bool) (am *AWSClusterManager, err error) {
@@ -111,10 +134,10 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 
 	am = &AWSClusterManager{
 		Name:               clusterName,
-		cloudProviderName:  "aws",
-		k8sProviderName:    "talos",
-		dnsManager:         dnsManager,
-		verbose:            verbose,
+		CloudProviderName:  "aws",
+		K8sProviderName:    "talos",
+		DnsManager:         dnsManager,
+		Verbose:            verbose,
 		Config:             cfg,
 		Ec2Client:          ec2Client,
 		ELBClient:          elbClient,
@@ -133,25 +156,24 @@ func (am *AWSClusterManager) ClusterName() string {
 	return am.Name
 }
 
-func (am *AWSClusterManager) CloudProviderName() string {
-	return am.cloudProviderName
+//	func (am *AWSClusterManager) CloudProviderName() string {
+//		return am.CloudProviderName
+//	}
+//
+//	func (am *AWSClusterManager) K8sProviderName() string {
+//		return am.K8sProviderName
+//	}
+func (am *AWSClusterManager) GetScheduleWorkloadsOnCPNodes() bool {
+	return am.ScheduleWorkloadsOnCPNodes
+}
+func (am *AWSClusterManager) GetVerbose() bool {
+	return am.Verbose
 }
 
-func (am *AWSClusterManager) K8sProviderName() string {
-	return am.k8sProviderName
-}
-
-func (am *AWSClusterManager) ScheduleWorkloadsOnCPNodes() bool {
-	return am.scheduleWorkloadsOnCPNodes
-}
-
-func (am *AWSClusterManager) Verbose() bool {
-	return am.verbose
-}
-
-func (am *AWSClusterManager) DNSManager() manager.DNSManager {
-	return am.dnsManager
-}
+//
+//func (am *AWSClusterManager) DNSManager() manager.DNSManager {
+//	return am.DnsManager
+//}
 
 func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.ClusterInfo, err error) {
 

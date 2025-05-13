@@ -49,7 +49,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	}
 
 	blockDeviceMappings := []types.BlockDeviceMapping{
-		types.BlockDeviceMapping{
+		{
 			DeviceName: aws.String("/dev/xvda"),
 			Ebs: &types.EbsBlockDevice{
 				DeleteOnTermination: aws.Bool(true),
@@ -108,20 +108,23 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 
 	fullAddr := fmt.Sprintf("%s:50000", node.IP())
 
-	manager.VerboseOutput(am.Verbose(), "Waiting for node %s to become ready (This will take several tries.)\n", fullAddr)
+	manager.VerboseOutput(am.GetVerbose(), "Waiting for node %s to become ready (This will take several tries.)\n", fullAddr)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	conn, err := manager.DialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second, am.Verbose())
+	conn, err := manager.DialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed dialing %s", fullAddr)
 		return err
 	}
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		err = errors.Wrapf(err, "failed closing connection to %s", fullAddr)
+		return err
+	}
 
 	// Apply Talos machine config
-	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, machineConfigPatches, true, am.Verbose())
+	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, machineConfigPatches, true, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed applying machine config to %s", nodeName)
 		return err
@@ -135,7 +138,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	}
 
 	// Register Node with DNS
-	err = am.DNSManager().RegisterNode(am.Context, node, am.Verbose())
+	err = am.DnsManager.RegisterNode(am.Context, node, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
 		return err
@@ -148,14 +151,14 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 
 func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	// Get Node info
-	manager.VerboseOutput(am.Verbose(), "Getting node info\n")
+	manager.VerboseOutput(am.GetVerbose(), "Getting node info\n")
 	nodeInfo, err := am.GetNode(nodeName)
 	if err != nil {
 		err = errors.Wrapf(err, "failed getting node %s", nodeName)
 		return err
 	}
 
-	err = am.DNSManager().DeregisterNode(am.Context, nodeName, am.Verbose())
+	err = am.DnsManager.DeregisterNode(am.Context, nodeName, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed deregistering dns for %s", nodeName)
 		return err
@@ -167,7 +170,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	manager.VerboseOutput(am.Verbose(), "Removing node %s from EC2\n", nodeName)
+	manager.VerboseOutput(am.GetVerbose(), "Removing node %s from EC2\n", nodeName)
 	// Remove Instance
 	input := &ec2.TerminateInstancesInput{
 		InstanceIds: []string{nodeInfo.ID},
@@ -180,7 +183,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	err = kubernetes.DeleteNode(am.Context, nodeName, am.Verbose())
+	err = kubernetes.DeleteNode(am.Context, nodeName, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed deleting node %s from k8s", nodeName)
 	}
