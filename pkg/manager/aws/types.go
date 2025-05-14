@@ -14,7 +14,7 @@ type AWSNodeConfig struct {
 	BlockDeviceName    string `yaml:"block_device_name"`
 	BlockDeviceType    string `yaml:"block_device_type"`
 	PlacementGroupName string `yaml:"placement_group_name"`
-	Domain             string `yaml:"domain"`
+	Domain             string `yaml:"Domain"`
 }
 
 type AWSNode struct {
@@ -23,7 +23,7 @@ type AWSNode struct {
 	NodeRole   string         `yaml:"role"`
 	NodeID     string         `yaml:"id"`
 	Config     *AWSNodeConfig `yaml:"config"`
-	NodeDomain string         `yaml:"domain"`
+	NodeDomain string         `yaml:"Domain"`
 }
 
 func (n AWSNode) Name() (nodeName string) {
