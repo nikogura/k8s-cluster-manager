@@ -1,7 +1,6 @@
 package aws
 
 import (
-	"fmt"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"github.com/stretchr/testify/assert"
 	"reflect"
@@ -58,7 +57,7 @@ func TestGetNode(t *testing.T) {
 		expect expect
 	}{
 		{
-			name: "Get Node - One Running Instance",
+			name: "ACM.GetNode() - One Running Instance",
 			acm: AWSClusterManager{
 				Ec2Client:          MockEc2ClientOneRunningInst{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
@@ -87,16 +86,16 @@ func TestGetNode(t *testing.T) {
 			},
 		},
 		{
-			name: "Get Node - Stopped Instance",
+			name: "ACM.GetNode() - Stopped Instance",
 			acm: AWSClusterManager{
-				Ec2Client:          MockEc2ClientOneRunningInst{},
+				Ec2Client:          MockEc2ClientStoppedInst{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
 				FetchedNodesById:   make(map[string]manager.NodeInfo),
 			},
 			expect: expect{
 				manager.NodeInfo{},
 				AWSClusterManager{
-					Ec2Client:          MockEc2ClientOneRunningInst{},
+					Ec2Client:          MockEc2ClientStoppedInst{},
 					FetchedNodesByName: make(map[string]manager.NodeInfo),
 					FetchedNodesById:   make(map[string]manager.NodeInfo),
 				},
@@ -114,39 +113,14 @@ func TestGetNode(t *testing.T) {
 			if e, g := tc.expect.ni, got; reflect.DeepEqual(e, g) != true {
 				eStr := prettyPrint(e)
 				gStr := prettyPrint(g)
-				t.Errorf("\n expect:\n%s\n got:\n%s", eStr, gStr)
+				t.Errorf("\n expect:\n%s\n got:\n%s\n", eStr, gStr)
 			}
 			if e, g := tc.expect.acm, tc.acm; reflect.DeepEqual(e, g) != true {
 				eStr := prettyPrint(e)
 				gStr := prettyPrint(g)
-				t.Logf("\n expect:\n%s\n got:\n%s", eStr, gStr)
-				t.Errorf("\n maps:\n expect:\n%s\n got:\n%s", prettyPrintMap(tc.expect.acm.FetchedNodesByName), prettyPrintMap(tc.acm.FetchedNodesByName))
+				t.Logf("\n expect:\n%s\n got:\n%s\n", eStr, gStr)
+				t.Errorf("\n expect (maps):\n%s\n got:\n%s\n", prettyPrintMap(tc.expect.acm.FetchedNodesByName), prettyPrintMap(tc.acm.FetchedNodesByName))
 			}
 		})
 	}
-}
-
-func prettyPrint[T any](str T) string {
-	s := reflect.ValueOf(&str).Elem()
-	typeOf := s.Type()
-	pretty := ""
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
-		pretty = strings.Join([]string{pretty, fmt.Sprintf("%d: %s %s = %v\n", i,
-			typeOf.Field(i).Name, f.Type(), f.Interface())}, "")
-	}
-
-	return pretty
-}
-
-func prettyPrintMap[T map[string]manager.NodeInfo](str T) string {
-	pretty := ""
-	i := 0
-	for k, v := range str {
-		pretty = strings.Join([]string{pretty, fmt.Sprintf("%d: %s =\n-\n|\n%s\n", i,
-			k, prettyPrint(v))}, "")
-		i++
-	}
-
-	return pretty
 }
