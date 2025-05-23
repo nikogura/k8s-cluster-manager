@@ -19,15 +19,14 @@ type Ec2Client interface {
 	DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error)
 }
 
-//var blah = ec2.Client.DescribeSecurityGroups
+//to quickly find the signature of a mocked method, create a variable as below, use autocomplete, and Ctrl-Click right to the original method
+//var blah = ec2.Client.DescribeInstances(ctx, blah)
 
-type MockEc2ClientOneRunningInst struct {
+type MockEc2ClientGetNodeOneRunningInst struct {
 	*ec2.Client
 }
 
-//var blah = ec2.Client.DescribeInstances(ctx, blah)
-
-func (MockEc2ClientOneRunningInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+func (MockEc2ClientGetNodeOneRunningInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
 	return &ec2.DescribeInstancesOutput{
 		Reservations: []types.Reservation{
 			{
@@ -35,6 +34,55 @@ func (MockEc2ClientOneRunningInst) DescribeInstances(ctx context.Context, params
 					{
 						State:      &types.InstanceState{Name: types.InstanceStateNameRunning},
 						InstanceId: aws.String(INSTANCEID),
+						Tags: []types.Tag{
+							{
+								Key:   aws.String("Name"),
+								Value: &params.Filters[0].Values[0],
+							},
+						},
+					},
+				},
+			},
+		},
+	}, nil
+}
+
+type MockEc2ClientGetNodeStoppedInst struct {
+	*ec2.Client
+}
+
+func (MockEc2ClientGetNodeStoppedInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+	return &ec2.DescribeInstancesOutput{
+		Reservations: []types.Reservation{
+			{
+				Instances: []types.Instance{
+					{
+						State:      &types.InstanceState{Name: types.InstanceStateNameStopped},
+						InstanceId: aws.String(INSTANCEID),
+						Tags: []types.Tag{
+							{
+								Key:   aws.String("Name"),
+								Value: &params.Filters[0].Values[0],
+							},
+						},
+					},
+				},
+			},
+		},
+	}, nil
+}
+
+type MockEc2ClientGetNodeByIdInstExists struct {
+	*ec2.Client
+}
+
+func (MockEc2ClientGetNodeByIdInstExists) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+	return &ec2.DescribeInstancesOutput{
+		Reservations: []types.Reservation{
+			{
+				Instances: []types.Instance{
+					{
+						InstanceId: &params.InstanceIds[0],
 						Tags: []types.Tag{
 							{
 								Key:   aws.String("Name"),
@@ -48,30 +96,13 @@ func (MockEc2ClientOneRunningInst) DescribeInstances(ctx context.Context, params
 	}, nil
 }
 
-type MockEc2ClientStoppedInst struct {
+type MockEc2ClientGetNodeByIdNoInst struct {
 	*ec2.Client
 }
 
-//var blah = ec2.Client.DescribeInstances(ctx, blah)
-
-func (MockEc2ClientStoppedInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+func (MockEc2ClientGetNodeByIdNoInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
 	return &ec2.DescribeInstancesOutput{
-		Reservations: []types.Reservation{
-			{
-				Instances: []types.Instance{
-					{
-						State:      &types.InstanceState{Name: types.InstanceStateNameStopped},
-						InstanceId: aws.String(INSTANCEID),
-						Tags: []types.Tag{
-							{
-								Key:   aws.String("Name"),
-								Value: aws.String(NODENAME),
-							},
-						},
-					},
-				},
-			},
-		},
+		Reservations: []types.Reservation{},
 	}, nil
 }
 

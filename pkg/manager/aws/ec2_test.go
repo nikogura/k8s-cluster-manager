@@ -61,7 +61,7 @@ func TestGetNode(t *testing.T) {
 		{
 			name: "ACM.GetNode() - One Running Instance",
 			acm: AWSClusterManager{
-				Ec2Client:          MockEc2ClientOneRunningInst{},
+				Ec2Client:          MockEc2ClientGetNodeOneRunningInst{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
 				FetchedNodesById:   make(map[string]manager.NodeInfo),
 			},
@@ -71,7 +71,7 @@ func TestGetNode(t *testing.T) {
 					ID:   INSTANCEID,
 				},
 				AWSClusterManager{
-					Ec2Client: MockEc2ClientOneRunningInst{},
+					Ec2Client: MockEc2ClientGetNodeOneRunningInst{},
 					FetchedNodesByName: map[string]manager.NodeInfo{
 						NODENAME: {
 							Name: NODENAME,
@@ -90,14 +90,14 @@ func TestGetNode(t *testing.T) {
 		{
 			name: "ACM.GetNode() - Stopped Instance",
 			acm: AWSClusterManager{
-				Ec2Client:          MockEc2ClientStoppedInst{},
+				Ec2Client:          MockEc2ClientGetNodeStoppedInst{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
 				FetchedNodesById:   make(map[string]manager.NodeInfo),
 			},
 			expect: expect{
 				manager.NodeInfo{},
 				AWSClusterManager{
-					Ec2Client:          MockEc2ClientStoppedInst{},
+					Ec2Client:          MockEc2ClientGetNodeStoppedInst{},
 					FetchedNodesByName: make(map[string]manager.NodeInfo),
 					FetchedNodesById:   make(map[string]manager.NodeInfo),
 				},
@@ -139,9 +139,9 @@ func TestGetNodeById(t *testing.T) {
 		expect expect
 	}{
 		{
-			name: "ACM.GetNodeById()",
+			name: "ACM.GetNodeById() - Instance Exists",
 			acm: AWSClusterManager{
-				Ec2Client:          MockEc2ClientOneRunningInst{},
+				Ec2Client:          MockEc2ClientGetNodeByIdInstExists{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
 				FetchedNodesById:   make(map[string]manager.NodeInfo),
 			},
@@ -151,7 +151,7 @@ func TestGetNodeById(t *testing.T) {
 					ID:   INSTANCEID,
 				},
 				AWSClusterManager{
-					Ec2Client: MockEc2ClientOneRunningInst{},
+					Ec2Client: MockEc2ClientGetNodeByIdInstExists{},
 					FetchedNodesByName: map[string]manager.NodeInfo{
 						NODENAME: {
 							Name: NODENAME,
@@ -164,6 +164,22 @@ func TestGetNodeById(t *testing.T) {
 							ID:   INSTANCEID,
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "ACM.GetNodeById() - Instance Does Not Exist",
+			acm: AWSClusterManager{
+				Ec2Client:          MockEc2ClientGetNodeByIdNoInst{},
+				FetchedNodesByName: make(map[string]manager.NodeInfo),
+				FetchedNodesById:   make(map[string]manager.NodeInfo),
+			},
+			expect: expect{
+				manager.NodeInfo{},
+				AWSClusterManager{
+					Ec2Client:          MockEc2ClientGetNodeByIdNoInst{},
+					FetchedNodesByName: map[string]manager.NodeInfo{},
+					FetchedNodesById:   map[string]manager.NodeInfo{},
 				},
 			},
 		},
@@ -308,4 +324,5 @@ func TestGetNodeSecurityGroupsForCluster(t *testing.T) {
 			}
 		})
 	}
+
 }
