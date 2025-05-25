@@ -265,8 +265,8 @@ func (am *AWSClusterManager) GetNodeById(id string) (nodeInfo manager.NodeInfo, 
 	// "If you specify an instance ID that is not valid, an error is returned.
 	// If you specify an instance that you do not own, it is not included in the output."
 	// TODO: validate the output of an unowned but existing instance with an acceptance test
-	//  Assuming for that case that output.Reservations will be empty, vs output.Reservations[0].Instances
-	//  existing and being empty
+	//  Assuming for that case that the result is a zero-length output.Reservations,
+	//  not a zero-length output.Reservations[0].Instances
 	// Note: converting an error from AWS to a Warn level log in order to present a consistent output for unit testing
 	if err != nil {
 		logrus.Warnf("id %s does not exist", id)
