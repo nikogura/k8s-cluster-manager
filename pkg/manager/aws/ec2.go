@@ -375,7 +375,6 @@ func (am *AWSClusterManager) GetSecurityGroupsForCluster() (groups []types.Secur
 }
 
 func (am *AWSClusterManager) GetNodeSecurityGroupsForCluster() (groups []types.SecurityGroup, err error) {
-	groups = make([]types.SecurityGroup, 0)
 
 	allGroups, err := am.GetSecurityGroupsForCluster()
 	if err != nil {
