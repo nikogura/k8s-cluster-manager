@@ -76,7 +76,7 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 	}{
 		{
 			// test case
-			name: "Get Cluster LBs",
+			name: "ACM.GetClusterLBs() - One Cluster LB",
 			acm: AWSClusterManager{
 				Name:      TEST_CLUSTER_TAG_VALUE,
 				ELBClient: MockELBClient{},
@@ -102,6 +102,16 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			//TODO: debug shows the test case is "len 0", but real function returns nil
+			name: "ACM.GetClusterLBs() - No Cluster LBs",
+			acm: AWSClusterManager{
+				Name:      TEST_ELB_CLUSTER_TAG_VALUE,
+				ELBClient: MockELBClientNoLB{},
+			},
+			// expected results from test case
+			expect: nil,
 		},
 	}
 
