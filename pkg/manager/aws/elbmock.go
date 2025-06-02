@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-const TEST_ELB_CLUSTER_TAG = "Cluster"
-const TEST_ELB_CLUSTER_TAG_VALUE = "test-cluster"
+const TEST_CLUSTER_TAG = "Cluster"
+const TEST_CLUSTER_TAG_VALUE = "test-cluster"
 const TEST_LOAD_BALANCER_ARN = "arn:aws:elasticloadbalancing:ap-northeast-1:1234567890:loadbalancer/app/test-load-balancer/50dc6c495c0c9188"
 const TEST_LOAD_BALANCER_NAME = "not api server"
 const TEST_TARGET_GROUP_NAME = "test-targets"
@@ -37,7 +37,7 @@ func (MockELBClient) DescribeLoadBalancers(ctx context.Context, params *elasticl
 }
 
 // DescribeTags overrides the method of the same name on the elasticloadbalancingv2.Client and returns a specified result
-func (MockELBClient) DescribeTags(ctx context.Context, params *elasticloadbalancingv2.DescribeTagsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTagsOutput, error) {
+func (MockELBClient) DescribeTags(ctx context.Context, params *elasticloadbalancingv2.DescribeTagsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTagsOutput, error) {  
 	return &elasticloadbalancingv2.DescribeTagsOutput{
 		TagDescriptions: []types.TagDescription{
 			{

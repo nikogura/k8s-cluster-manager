@@ -78,7 +78,7 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 			// test case
 			name: "ACM.GetClusterLBs() - One Cluster LB",
 			acm: AWSClusterManager{
-				Name:      TEST_ELB_CLUSTER_TAG_VALUE,
+				Name:      TEST_CLUSTER_TAG_VALUE,
 				ELBClient: MockELBClient{},
 			},
 			// expected results from test case

@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
@@ -54,50 +55,70 @@ func TestGetNode(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name   string
-		acm    AWSClusterManager
-		expect expect
+		name     string
+		nodeName string
+		acm      AWSClusterManager
+		expect   expect
 	}{
 		{
-			name: "ACM.GetNode() - One Running Instance",
+			name:     "ACM.GetNode() - One Running Instance",
+			nodeName: TEST_NODENAME,
 			acm: AWSClusterManager{
-				Ec2Client:          MockEc2ClientOneRunningInst{},
+				Ec2Client:          MockEc2ClientGetNodeOneRunningInst{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
 				FetchedNodesById:   make(map[string]manager.NodeInfo),
 			},
 			expect: expect{
 				manager.NodeInfo{
-					Name: NODENAME,
-					ID:   INSTANCEID,
+					Name: TEST_NODENAME,
+					ID:   TEST_INSTANCEID,
 				},
 				AWSClusterManager{
-					Ec2Client: MockEc2ClientOneRunningInst{},
+					Ec2Client: MockEc2ClientGetNodeOneRunningInst{},
 					FetchedNodesByName: map[string]manager.NodeInfo{
-						NODENAME: {
-							Name: NODENAME,
-							ID:   INSTANCEID,
+						TEST_NODENAME: {
+							Name: TEST_NODENAME,
+							ID:   TEST_INSTANCEID,
 						},
 					},
 					FetchedNodesById: map[string]manager.NodeInfo{
-						INSTANCEID: {
-							Name: NODENAME,
-							ID:   INSTANCEID,
+						TEST_INSTANCEID: {
+							Name: TEST_NODENAME,
+							ID:   TEST_INSTANCEID,
 						},
 					},
 				},
 			},
 		},
 		{
-			name: "ACM.GetNode() - Stopped Instance",
+			name:     "ACM.GetNode() - Stopped Instance",
+			nodeName: TEST_NODENAME,
 			acm: AWSClusterManager{
-				Ec2Client:          MockEc2ClientStoppedInst{},
+				Ec2Client:          MockEc2ClientGetNodeStoppedInst{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
 				FetchedNodesById:   make(map[string]manager.NodeInfo),
 			},
 			expect: expect{
 				manager.NodeInfo{},
 				AWSClusterManager{
-					Ec2Client:          MockEc2ClientStoppedInst{},
+					Ec2Client:          MockEc2ClientGetNodeStoppedInst{},
+					FetchedNodesByName: make(map[string]manager.NodeInfo),
+					FetchedNodesById:   make(map[string]manager.NodeInfo),
+				},
+			},
+		},
+		{
+			name:     "ACM.GetNode() - No Instance",
+			nodeName: TEST_NODENAME,
+			acm: AWSClusterManager{
+				Ec2Client:          MockEc2ClientGetNodeNoInst{},
+				FetchedNodesByName: make(map[string]manager.NodeInfo),
+				FetchedNodesById:   make(map[string]manager.NodeInfo),
+			},
+			expect: expect{
+				manager.NodeInfo{},
+				AWSClusterManager{
+					Ec2Client:          MockEc2ClientGetNodeNoInst{},
 					FetchedNodesByName: make(map[string]manager.NodeInfo),
 					FetchedNodesById:   make(map[string]manager.NodeInfo),
 				},
@@ -107,7 +128,7 @@ func TestGetNode(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(strings.Join([]string{strconv.Itoa(i + 1), tc.name}, "."), func(t *testing.T) {
-			got, err := tc.acm.GetNode(NODENAME)
+			got, err := tc.acm.GetNode(tc.nodeName)
 
 			if err != nil {
 				t.Fatalf("no error expected with mocks, got %+v", err)
@@ -133,37 +154,59 @@ func TestGetNodeById(t *testing.T) {
 		acm AWSClusterManager
 	}
 
+	//this unit test cannot test whether the instance Name tag value is "correct",
+	//as it is not part of the input. It *can* be tested in an integration test, however
+	nodeName := fmt.Sprintf("name of %s", TEST_INSTANCEID)
+
 	testCases := []struct {
 		name   string
+		id     string
 		acm    AWSClusterManager
 		expect expect
 	}{
 		{
-			name: "ACM.GetNodeById()",
+			id:   TEST_INSTANCEID,
+			name: "ACM.GetNodeById() - Instance Exists",
 			acm: AWSClusterManager{
-				Ec2Client:          MockEc2ClientOneRunningInst{},
+				Ec2Client:          MockEc2ClientGetNodeByIdInstExists{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
 				FetchedNodesById:   make(map[string]manager.NodeInfo),
 			},
 			expect: expect{
 				manager.NodeInfo{
-					Name: NODENAME,
-					ID:   INSTANCEID,
+					Name: nodeName,
+					ID:   TEST_INSTANCEID,
 				},
 				AWSClusterManager{
-					Ec2Client: MockEc2ClientOneRunningInst{},
+					Ec2Client: MockEc2ClientGetNodeByIdInstExists{},
 					FetchedNodesByName: map[string]manager.NodeInfo{
-						NODENAME: {
-							Name: NODENAME,
-							ID:   INSTANCEID,
+						nodeName: {
+							Name: nodeName,
+							ID:   TEST_INSTANCEID,
 						},
 					},
 					FetchedNodesById: map[string]manager.NodeInfo{
-						INSTANCEID: {
-							Name: NODENAME,
-							ID:   INSTANCEID,
+						TEST_INSTANCEID: {
+							Name: nodeName,
+							ID:   TEST_INSTANCEID,
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "ACM.GetNodeById() - Instance Does Not Exist",
+			acm: AWSClusterManager{
+				Ec2Client:          MockEc2ClientGetNodeByIdNoInst{},
+				FetchedNodesByName: make(map[string]manager.NodeInfo),
+				FetchedNodesById:   make(map[string]manager.NodeInfo),
+			},
+			expect: expect{
+				manager.NodeInfo{},
+				AWSClusterManager{
+					Ec2Client:          MockEc2ClientGetNodeByIdNoInst{},
+					FetchedNodesByName: map[string]manager.NodeInfo{},
+					FetchedNodesById:   map[string]manager.NodeInfo{},
 				},
 			},
 		},
@@ -171,8 +214,69 @@ func TestGetNodeById(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(strings.Join([]string{strconv.Itoa(i + 1), tc.name}, "."), func(t *testing.T) {
-			got, err := tc.acm.GetNodeById(INSTANCEID)
+			got, err := tc.acm.GetNodeById(tc.id)
 
+			if err != nil {
+				t.Fatalf("no error expected with mocks, got %+v", err)
+			}
+			if e, g := tc.expect.ni, got; reflect.DeepEqual(e, g) != true {
+				eStr := prettyPrint(e)
+				gStr := prettyPrint(g)
+				t.Errorf("\nmanager.NodeInfo\n expect:\n%s\n got:\n%s\n", eStr, gStr)
+			}
+			if e, g := tc.expect.acm, tc.acm; reflect.DeepEqual(e, g) != true {
+				eStr := prettyPrint(e)
+				gStr := prettyPrint(g)
+				t.Logf("\nAWSClusterManager:\n expect:\n%s\n got:\n%s\n", eStr, gStr)
+				t.Errorf("\nexpansion of AWSClusterManager.FetchedNodesByName:\n expect:\n%s\n got:\n%s\n", prettyPrintMap(tc.expect.acm.FetchedNodesByName), prettyPrintMap(tc.acm.FetchedNodesByName))
+			}
+		})
+	}
+}
+
+func TestGetNodes(t *testing.T) {
+	type expect struct {
+		ni  []manager.NodeInfo
+		acm AWSClusterManager
+	}
+
+	testCases := []struct {
+		name        string
+		clusterName string
+		acm         AWSClusterManager
+		expect      expect
+	}{
+		{
+			name:        "ACM.GetNodes()",
+			clusterName: TEST_CLUSTER_TAG_VALUE,
+			acm: AWSClusterManager{
+				Ec2Client: MockEc2ClientGetNodes{},
+			},
+			//Note: there is a dependency between this expected result and the mocked method MockEc2ClientGetNodes
+			//the output of the mock must match the below; a real API invocation would return an unknown number of instances,
+			//so to test the sorting in the GetNodes method, we need to have "both sides" agree
+			expect: expect{
+				[]manager.NodeInfo{
+					{
+						Name: fmt.Sprintf("%s-a-node-name", TEST_CLUSTER_TAG_VALUE),
+					},
+					{
+						Name: fmt.Sprintf("%s-b-node-name", TEST_CLUSTER_TAG_VALUE),
+					},
+					{
+						Name: fmt.Sprintf("%s-z-node-name", TEST_CLUSTER_TAG_VALUE),
+					},
+				},
+				AWSClusterManager{
+					Ec2Client: MockEc2ClientGetNodes{},
+				},
+			},
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Run(strings.Join([]string{strconv.Itoa(i + 1), tc.name}, "."), func(t *testing.T) {
+			got, err := tc.acm.GetNodes(tc.clusterName)
 			if err != nil {
 				t.Fatalf("no error expected with mocks, got %+v", err)
 			}
@@ -223,7 +327,7 @@ func TestGetSecurityGroupsForCluster(t *testing.T) {
 		{
 			name: "ACM.GetSecurityGroupsForCluster() - No Security Groups",
 			acm: AWSClusterManager{
-				Name:      strings.Join([]string{"not", TEST_EC2_SG_TAG_VALUE}, " "),
+				Name:      fmt.Sprintf("not %s", TEST_EC2_SG_TAG_VALUE),
 				Ec2Client: MockEc2ClientNoSecurityGroups{},
 			},
 			expect: expect{
@@ -308,4 +412,5 @@ func TestGetNodeSecurityGroupsForCluster(t *testing.T) {
 			}
 		})
 	}
+
 }

@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-
+	"github.com/sirupsen/logrus"
 	//"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"context"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
@@ -351,6 +351,9 @@ func (am *AWSClusterManager) GetTargets(tgName string) (targets []manager.LBTarg
 			node, err := am.GetNodeById(*t.Target.Id)
 			if err != nil {
 				err = errors.Wrapf(err, "failed getting node by ID %s", *t.Target.Id)
+				return targets, err
+			} else if len(node.ID) == 0 {
+				logrus.Warnf("id %s exists but is not owned by this account", *t.Target.Id)
 				return targets, err
 			}
 
