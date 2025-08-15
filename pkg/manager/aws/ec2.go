@@ -10,6 +10,7 @@ import (
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/kubernetes"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager/talos"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"sort"
 	"strconv"
 	"time"
@@ -49,7 +50,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	}
 
 	blockDeviceMappings := []types.BlockDeviceMapping{
-		types.BlockDeviceMapping{
+		{
 			DeviceName: aws.String("/dev/xvda"),
 			Ebs: &types.EbsBlockDevice{
 				DeleteOnTermination: aws.Bool(true),
@@ -108,20 +109,23 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 
 	fullAddr := fmt.Sprintf("%s:50000", node.IP())
 
-	manager.VerboseOutput(am.Verbose(), "Waiting for node %s to become ready (This will take several tries.)\n", fullAddr)
+	manager.VerboseOutput(am.GetVerbose(), "Waiting for node %s to become ready (This will take several tries.)\n", fullAddr)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	conn, err := manager.DialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second, am.Verbose())
+	conn, err := manager.DialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed dialing %s", fullAddr)
 		return err
 	}
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		err = errors.Wrapf(err, "failed closing connection to %s", fullAddr)
+		return err
+	}
 
 	// Apply Talos machine config
-	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, machineConfigPatches, true, am.Verbose())
+	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, machineConfigPatches, true, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed applying machine config to %s", nodeName)
 		return err
@@ -135,7 +139,7 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	}
 
 	// Register Node with DNS
-	err = am.DNSManager().RegisterNode(am.Context, node, am.Verbose())
+	err = am.DnsManager.RegisterNode(am.Context, node, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
 		return err
@@ -148,14 +152,14 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 
 func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	// Get Node info
-	manager.VerboseOutput(am.Verbose(), "Getting node info\n")
+	manager.VerboseOutput(am.GetVerbose(), "Getting node info\n")
 	nodeInfo, err := am.GetNode(nodeName)
 	if err != nil {
 		err = errors.Wrapf(err, "failed getting node %s", nodeName)
 		return err
 	}
 
-	err = am.DNSManager().DeregisterNode(am.Context, nodeName, am.Verbose())
+	err = am.DnsManager.DeregisterNode(am.Context, nodeName, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed deregistering dns for %s", nodeName)
 		return err
@@ -167,7 +171,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	manager.VerboseOutput(am.Verbose(), "Removing node %s from EC2\n", nodeName)
+	manager.VerboseOutput(am.GetVerbose(), "Removing node %s from EC2\n", nodeName)
 	// Remove Instance
 	input := &ec2.TerminateInstancesInput{
 		InstanceIds: []string{nodeInfo.ID},
@@ -180,7 +184,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 		return err
 	}
 
-	err = kubernetes.DeleteNode(am.Context, nodeName, am.Verbose())
+	err = kubernetes.DeleteNode(am.Context, nodeName, am.GetVerbose())
 	if err != nil {
 		err = errors.Wrapf(err, "failed deleting node %s from k8s", nodeName)
 	}
@@ -190,6 +194,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	return err
 }
 
+// GetNode gets the Id (instance Id) of the node specified by the Name tag
 func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo, err error) {
 	filter := types.Filter{
 		Name:   aws.String("tag:Name"),
@@ -250,6 +255,7 @@ func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo
 	return nodeInfo, err
 }
 
+// GetNodeById gets the Name (tag) of the node specified by Id (instance ID)
 func (am *AWSClusterManager) GetNodeById(id string) (nodeInfo manager.NodeInfo, err error) {
 
 	input := &ec2.DescribeInstancesInput{
@@ -257,35 +263,28 @@ func (am *AWSClusterManager) GetNodeById(id string) (nodeInfo manager.NodeInfo, 
 	}
 
 	output, err := am.Ec2Client.DescribeInstances(am.Context, input)
+	// "If you specify an instance ID that is not valid, an error is returned.
+	// If you specify an instance that you do not own, it is not included in the output."
+	// TODO: validate the output of an unowned but existing instance with an acceptance test
+	//  Assuming for that case that the result is a zero-length output.Reservations,
+	//  not a zero-length output.Reservations[0].Instances
+	// Note: converting an error from AWS to a Warn level log in order to present a consistent output for unit testing
 	if err != nil {
-		err = errors.Wrapf(err, "failed getting node by id %s", id)
-	}
-
-	var nodeName string
-
-	if len(output.Reservations) > 0 {
-		if len(output.Reservations[0].Instances) > 0 {
-			// assuming there's only 1 reservation and 1 instance makes me nervous, but that is how I create 'em
-			for _, tag := range output.Reservations[0].Instances[0].Tags {
-				if *tag.Key == "Name" {
-					nodeName = *tag.Value
-				}
+		logrus.Warnf("id %s does not exist", id)
+	} else if len(output.Reservations) > 0 {
+		// assuming there's only 1 reservation and 1 instance makes me nervous, but that is how I create 'em
+		for _, tag := range output.Reservations[0].Instances[0].Tags {
+			if *tag.Key == "Name" {
+				nodeInfo.Name = *tag.Value
 			}
-
-			nodeInfo.ID = id
-			nodeInfo.Name = nodeName
-			nodeInfo.InstanceType = string(output.Reservations[0].Instances[0].InstanceType)
-
-			am.FetchedNodesByName[nodeName] = nodeInfo
-			am.FetchedNodesById[*output.Reservations[0].Instances[0].InstanceId] = nodeInfo
-
-		} else {
-			err = errors.New(fmt.Sprintf("instance for id %s not found", id))
-			return nodeInfo, err
 		}
-	} else {
-		err = errors.New(fmt.Sprintf("reservation for id %s not found", id))
-		return nodeInfo, err
+
+		nodeInfo.ID = *output.Reservations[0].Instances[0].InstanceId
+		nodeInfo.InstanceType = string(output.Reservations[0].Instances[0].InstanceType)
+
+		am.FetchedNodesByName[nodeInfo.Name] = nodeInfo
+		am.FetchedNodesById[*output.Reservations[0].Instances[0].InstanceId] = nodeInfo
+
 	}
 
 	// TODO get DNS Status?
@@ -376,7 +375,6 @@ func (am *AWSClusterManager) GetSecurityGroupsForCluster() (groups []types.Secur
 }
 
 func (am *AWSClusterManager) GetNodeSecurityGroupsForCluster() (groups []types.SecurityGroup, err error) {
-	groups = make([]types.SecurityGroup, 0)
 
 	allGroups, err := am.GetSecurityGroupsForCluster()
 	if err != nil {

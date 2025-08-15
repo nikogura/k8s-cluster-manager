@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-
+	"github.com/sirupsen/logrus"
 	//"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"context"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
@@ -172,7 +172,7 @@ func (am *AWSClusterManager) UpdateLB() (err error) {
 */
 
 func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err error) {
-	manager.VerboseOutput(am.Verbose(), "Deregistering node %s from load balancers in cluster %s \n", nodeName, am.ClusterName())
+	manager.VerboseOutput(am.GetVerbose(), "Deregistering node %s from load balancers in cluster %s \n", nodeName, am.ClusterName())
 
 	lbs, err := am.GetClusterLBs()
 	if err != nil {
@@ -184,7 +184,7 @@ func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err
 	for _, lb := range lbs {
 		for _, tg := range lb.TargetGroups {
 			// Register the node in the TargetGroup
-			manager.VerboseOutput(am.Verbose(), "Degistering Node %s with Target Group %s on Port %d\n", nodeName, tg.Arn, tg.Port)
+			manager.VerboseOutput(am.GetVerbose(), "Degistering Node %s with Target Group %s on Port %d\n", nodeName, tg.Arn, tg.Port)
 			err = am.DeregisterTarget(tg.Arn, nodeID, tg.Port)
 			if err != nil {
 				err = errors.Wrapf(err, "failed deregistering %s on tg %s", nodeName, tg.Arn)
@@ -219,7 +219,7 @@ func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port 
 }
 
 func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) {
-	manager.VerboseOutput(am.Verbose(), "Registering Node %s with role %s\n", node.Name(), node.Role())
+	manager.VerboseOutput(am.GetVerbose(), "Registering Node %s with role %s\n", node.Name(), node.Role())
 
 	lbs, err := am.GetClusterLBs()
 	if err != nil {
@@ -235,14 +235,14 @@ func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) 
 		}
 
 		// If it's not an apiserver LB, and this is a CP node, and we don't schedule workloads here, move on
-		if !lb.IsApiServer && node.Role() == manager.NODE_ROLE_CP && !am.ScheduleWorkloadsOnCPNodes() {
+		if !lb.IsApiServer && node.Role() == manager.NODE_ROLE_CP && !am.GetScheduleWorkloadsOnCPNodes() {
 			continue // skip registration
 		}
 
 		// Register the node.
 		for _, tg := range lb.TargetGroups {
 			// Register the node in the TargetGroup
-			manager.VerboseOutput(am.Verbose(), "Registering Node %s with Target Group %s on Port %d\n", node.ID(), tg.Arn, tg.Port)
+			manager.VerboseOutput(am.GetVerbose(), "Registering Node %s with Target Group %s on Port %d\n", node.ID(), tg.Arn, tg.Port)
 			err = am.RegisterTarget(tg.Arn, node.ID(), tg.Port)
 			if err != nil {
 				err = errors.Wrapf(err, "failed registering %s on tg %s", node.ID(), tg.Arn)
@@ -351,6 +351,9 @@ func (am *AWSClusterManager) GetTargets(tgName string) (targets []manager.LBTarg
 			node, err := am.GetNodeById(*t.Target.Id)
 			if err != nil {
 				err = errors.Wrapf(err, "failed getting node by ID %s", *t.Target.Id)
+				return targets, err
+			} else if len(node.ID) == 0 {
+				logrus.Warnf("id %s exists but is not owned by this account", *t.Target.Id)
 				return targets, err
 			}
 

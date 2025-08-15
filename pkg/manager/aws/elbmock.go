@@ -2,11 +2,15 @@ package aws
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go/middleware"
+	"strings"
 )
 
+const TEST_CLUSTER_TAG = "Cluster"
+const TEST_CLUSTER_TAG_VALUE = "test-cluster"
 const TEST_ELB_CLUSTER_TAG = "Cluster"
 const TEST_ELB_CLUSTER_TAG_VALUE = "test-cluster"
 const TEST_LOAD_BALANCER_ARN = "arn:aws:elasticloadbalancing:ap-northeast-1:1234567890:loadbalancer/app/test-load-balancer/50dc6c495c0c9188"
@@ -22,14 +26,11 @@ type MockELBClient struct {
 
 // DescribeLoadBalancers overrides the method of the same name on the elasticloadbalancingv2.Client and returns a specified result
 func (MockELBClient) DescribeLoadBalancers(ctx context.Context, params *elasticloadbalancingv2.DescribeLoadBalancersInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeLoadBalancersOutput, error) {
-	loadBalancerName := TEST_LOAD_BALANCER_NAME
-	loadBalancerArn := TEST_LOAD_BALANCER_ARN
-
 	return &elasticloadbalancingv2.DescribeLoadBalancersOutput{
 		LoadBalancers: []types.LoadBalancer{
 			{
-				LoadBalancerName: &loadBalancerName,
-				LoadBalancerArn:  &loadBalancerArn,
+				LoadBalancerName: aws.String(TEST_LOAD_BALANCER_NAME),
+				LoadBalancerArn:  aws.String(TEST_LOAD_BALANCER_ARN),
 			},
 		},
 		NextMarker:     nil,
@@ -38,19 +39,15 @@ func (MockELBClient) DescribeLoadBalancers(ctx context.Context, params *elasticl
 }
 
 // DescribeTags overrides the method of the same name on the elasticloadbalancingv2.Client and returns a specified result
-func (MockELBClient) DescribeTags(ctx context.Context, params *elasticloadbalancingv2.DescribeTagsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTagsOutput, error) {
-	loadBalancerArn := TEST_LOAD_BALANCER_ARN
-	tagKey := TEST_ELB_CLUSTER_TAG
-	tagValue := TEST_ELB_CLUSTER_TAG_VALUE
-
+func (MockELBClient) DescribeTags(ctx context.Context, params *elasticloadbalancingv2.DescribeTagsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTagsOutput, error) {  
 	return &elasticloadbalancingv2.DescribeTagsOutput{
 		TagDescriptions: []types.TagDescription{
 			{
-				ResourceArn: &loadBalancerArn,
+				ResourceArn: aws.String(TEST_LOAD_BALANCER_ARN),
 				Tags: []types.Tag{
 					{
-						Key:   &tagKey,
-						Value: &tagValue,
+						Key:   aws.String(TEST_ELB_CLUSTER_TAG),
+						Value: aws.String(TEST_ELB_CLUSTER_TAG_VALUE),
 					},
 				},
 			},
@@ -60,16 +57,12 @@ func (MockELBClient) DescribeTags(ctx context.Context, params *elasticloadbalanc
 }
 
 func (MockELBClient) DescribeTargetGroups(ctx context.Context, params *elasticloadbalancingv2.DescribeTargetGroupsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTargetGroupsOutput, error) {
-	targetGroupName := TEST_TARGET_GROUP_NAME
-	targetGroupArn := TEST_TARGET_GROUP_ARN
-	port := TEST_TARGET_GROUP_PORT
-
 	return &elasticloadbalancingv2.DescribeTargetGroupsOutput{
 		TargetGroups: []types.TargetGroup{
 			{
-				TargetGroupName: &targetGroupName,
-				TargetGroupArn:  &targetGroupArn,
-				Port:            &port,
+				TargetGroupName: aws.String(TEST_TARGET_GROUP_NAME),
+				TargetGroupArn:  aws.String(TEST_TARGET_GROUP_ARN),
+				Port:            aws.Int32(TEST_TARGET_GROUP_PORT),
 			},
 		},
 	}, nil
@@ -77,4 +70,40 @@ func (MockELBClient) DescribeTargetGroups(ctx context.Context, params *elasticlo
 
 func (MockELBClient) DescribeTargetHealth(ctx context.Context, params *elasticloadbalancingv2.DescribeTargetHealthInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTargetHealthOutput, error) {
 	return &elasticloadbalancingv2.DescribeTargetHealthOutput{}, nil
+}
+
+type MockELBClientNoLB struct {
+	// the elasticloadbalancingv2.Client implements the ELBClient interface
+	*elasticloadbalancingv2.Client
+}
+
+// DescribeLoadBalancers identical to MockELBClient method
+func (MockELBClientNoLB) DescribeLoadBalancers(ctx context.Context, params *elasticloadbalancingv2.DescribeLoadBalancersInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeLoadBalancersOutput, error) {
+	return &elasticloadbalancingv2.DescribeLoadBalancersOutput{
+		LoadBalancers: []types.LoadBalancer{
+			{
+				LoadBalancerName: aws.String(TEST_LOAD_BALANCER_NAME),
+				LoadBalancerArn:  aws.String(TEST_LOAD_BALANCER_ARN),
+			},
+		},
+		NextMarker:     nil,
+		ResultMetadata: middleware.Metadata{},
+	}, nil
+}
+
+func (MockELBClientNoLB) DescribeTags(ctx context.Context, params *elasticloadbalancingv2.DescribeTagsInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeTagsOutput, error) {
+	return &elasticloadbalancingv2.DescribeTagsOutput{
+		TagDescriptions: []types.TagDescription{
+			{
+				ResourceArn: aws.String(TEST_LOAD_BALANCER_ARN),
+				Tags: []types.Tag{
+					{
+						Key:   aws.String(TEST_ELB_CLUSTER_TAG),
+						Value: aws.String(strings.Join([]string{"not", TEST_ELB_CLUSTER_TAG_VALUE}, " ")),
+					},
+				},
+			},
+		},
+		ResultMetadata: middleware.Metadata{},
+	}, nil
 }
