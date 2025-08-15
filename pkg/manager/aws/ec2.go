@@ -217,6 +217,7 @@ func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo
 				//fmt.Printf("Selecting instance Reservation: %s ID: %s State: %v\n", *res.ReservationId, *inst.InstanceId, inst.State.Name)
 				nodeInfo.Name = nodeName
 				nodeInfo.ID = *inst.InstanceId
+				nodeInfo.InstanceType = string(inst.InstanceType)
 
 				am.FetchedNodesByName[nodeName] = nodeInfo
 				am.FetchedNodesById[*inst.InstanceId] = nodeInfo
@@ -273,6 +274,7 @@ func (am *AWSClusterManager) GetNodeById(id string) (nodeInfo manager.NodeInfo, 
 
 			nodeInfo.ID = id
 			nodeInfo.Name = nodeName
+			nodeInfo.InstanceType = string(output.Reservations[0].Instances[0].InstanceType)
 
 			am.FetchedNodesByName[nodeName] = nodeInfo
 			am.FetchedNodesById[*output.Reservations[0].Instances[0].InstanceId] = nodeInfo
@@ -326,7 +328,9 @@ func (am *AWSClusterManager) GetNodes(clusterName string) (nodeInfo []manager.No
 		}
 
 		info := manager.NodeInfo{
-			Name: name,
+			Name:         name,
+			ID:           *instance.InstanceId,
+			InstanceType: string(instance.InstanceType),
 		}
 
 		nodeInfo = append(nodeInfo, info)

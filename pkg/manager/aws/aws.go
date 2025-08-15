@@ -97,7 +97,6 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 
 	// Create k8s clients
 	kubeClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
-	logrus.Print("Made it")
 	if err != nil {
 		err = errors.Wrapf(err, "failed creating k8s clients")
 		return am, err

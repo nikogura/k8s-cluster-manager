@@ -66,8 +66,9 @@ type ClusterInfo struct {
 }
 
 type NodeInfo struct {
-	Name string
-	ID   string
+	Name         string
+	ID           string
+	InstanceType string
 }
 
 type LBInfo struct {
@@ -115,7 +116,11 @@ func (i ClusterInfo) ConsolePrint() {
 }
 
 func (i NodeInfo) ConsolePrint(indent string) {
-	fmt.Printf("%s%s\n", indent, i.Name)
+	if i.InstanceType != "" {
+		fmt.Printf("%s%s (%s)\n", indent, i.Name, i.InstanceType)
+	} else {
+		fmt.Printf("%s%s\n", indent, i.Name)
+	}
 }
 
 func (i LBInfo) ConsolePrint(indent string) {
