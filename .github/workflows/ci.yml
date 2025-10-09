@@ -76,11 +76,13 @@ jobs:
     - name: Run unit tests
       run: make test
 
-    - name: Install Named returns
+    - name: Install namedreturns
       run: go install github.com/nikogura/namedreturns@latest
 
-    - name: Install golangci-lint
-      run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: latest
 
     - name: Lint Checks
       run: make lint
