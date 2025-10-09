@@ -18,7 +18,7 @@ import (
 
 const TalosControlPort = 50000
 
-func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig, machineConfigBytes []byte, machineConfigPatches []string) (err error) {
+func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig, machineConfigBytes []byte, machineConfigPatches []string, purpose string) (err error) {
 	// Create Instance
 	fmt.Printf("Creating Node %s with role %s in cluster %s\n", nodeName, nodeRole, am.ClusterName())
 
@@ -53,6 +53,21 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 	if applyErr != nil {
 		err = errors.Wrapf(applyErr, "failed applying machine config to %s", nodeName)
 		return err
+	}
+
+	// If purpose provided, wait for node registration and apply labels/taints
+	if purpose != "" {
+		k8sWaitErr := kubernetes.WaitForNodeReady(am.Context, nodeName, 10*time.Minute, am.GetVerbose())
+		if k8sWaitErr != nil {
+			// Log but don't fail - node is created, can be labeled manually
+			fmt.Printf("Warning: %s\n", k8sWaitErr)
+		} else {
+			purposeErr := kubernetes.ApplyPurposeLabelsAndTaints(am.Context, nodeName, purpose, am.GetVerbose())
+			if purposeErr != nil {
+				// Log but don't fail
+				fmt.Printf("Warning: failed to apply purpose label/taint: %s\n", purposeErr)
+			}
+		}
 	}
 
 	// Register Node with Load Balancers

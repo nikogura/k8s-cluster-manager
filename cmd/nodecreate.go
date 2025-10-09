@@ -72,7 +72,7 @@ Create a new Kubernetes Node
 			}
 
 			// Create Node
-			createErr := cm.CreateNode(nodeName, nodeRole, nodeConfig, configBytes, []string{string(patchBytes)})
+			createErr := cm.CreateNode(nodeName, nodeRole, nodeConfig, configBytes, []string{string(patchBytes)}, purpose)
 			if createErr != nil {
 				log.Fatalf("error creating node %s: %s", nodeName, createErr)
 			}

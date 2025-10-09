@@ -1,4 +1,7 @@
-.PHONY: lint
+.PHONY: test lint
+
+test:
+	go test -v -race -coverprofile=coverage.out ./...
 
 lint:
 	namedreturns ./...

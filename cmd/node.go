@@ -22,6 +22,9 @@ var nodeRole string
 //nolint:gochecknoglobals // Cobra boilerplate
 var nodeType string
 
+//nolint:gochecknoglobals // Cobra boilerplate
+var purpose string
+
 // nodeCmd represents the node command.
 //
 //nolint:gochecknoglobals // Cobra boilerplate
@@ -42,6 +45,7 @@ func init() {
 	nodeCmd.PersistentFlags().StringVarP(&nodeName, "name", "n", "", "Node Name")
 	nodeCmd.PersistentFlags().StringVarP(&nodeRole, "role", "r", "worker", "Node Role")
 	nodeCmd.PersistentFlags().StringVarP(&nodeType, "type", "t", "", "Node Type")
+	nodeCmd.PersistentFlags().StringVarP(&purpose, "purpose", "p", "", "Node Purpose (adds label and taint)")
 }
 
 // ConfigsFromVaultOrFile will return byte arrays representing the machine config, patch, and node config, pulled either from Vault (if -m is specified) or.
