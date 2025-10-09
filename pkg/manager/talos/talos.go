@@ -30,30 +30,30 @@ func ApplyConfig(ctx context.Context, node manager.ClusterNode, machineConfigByt
 	machineConfigPatches = append(machineConfigPatches, nodeNamePatch)
 
 	// Load config patches
-	patches, err := configpatcher.LoadPatches(machineConfigPatches)
-	if err != nil {
-		err = errors.Wrapf(err, "failed loading config patches")
+	patches, patchErr := configpatcher.LoadPatches(machineConfigPatches)
+	if patchErr != nil {
+		err = errors.Wrapf(patchErr, "failed loading config patches")
 		return err
 	}
 
 	// patch the machine config with things like the node name and other specifics
-	cfg, err := configpatcher.Apply(configpatcher.WithBytes(machineConfigBytes), patches)
-	if err != nil {
-		err = errors.Wrapf(err, "failed applying config patches to machine config ")
+	cfg, cfgErr := configpatcher.Apply(configpatcher.WithBytes(machineConfigBytes), patches)
+	if cfgErr != nil {
+		err = errors.Wrapf(cfgErr, "failed applying config patches to machine config ")
 		return err
 	}
 
 	// Extract the patched config bytes
-	cfgBytes, err := cfg.Bytes()
-	if err != nil {
-		err = errors.Wrapf(err, "failed extracting config bytes")
+	cfgBytes, bytesErr := cfg.Bytes()
+	if bytesErr != nil {
+		err = errors.Wrapf(bytesErr, "failed extracting config bytes")
 		return err
 	}
 
 	// Create Talos Client
-	tClient, err := client.New(ctx, client.WithTLSConfig(tlsConfig), client.WithEndpoints(node.IP()))
-	if err != nil {
-		err = errors.Wrapf(err, "failed creating new talos client")
+	tClient, clientErr := client.New(ctx, client.WithTLSConfig(tlsConfig), client.WithEndpoints(node.IP()))
+	if clientErr != nil {
+		err = errors.Wrapf(clientErr, "failed creating new talos client")
 		return err
 	}
 

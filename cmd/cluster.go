@@ -7,7 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// clusterCmd represents the cluster command
+// clusterCmd represents the cluster command.
+//
+//nolint:gochecknoglobals // Cobra boilerplate
 var clusterCmd = &cobra.Command{
 	Use:   "cluster",
 	Short: "Operations on Kubernetes Clusters",
@@ -18,6 +20,7 @@ Operations on Kubernetes Clusters
 	//},
 }
 
+//nolint:gochecknoinits // Cobra boilerplate
 func init() {
 	rootCmd.AddCommand(clusterCmd)
 

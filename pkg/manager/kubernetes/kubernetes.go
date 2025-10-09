@@ -11,9 +11,9 @@ import (
 func DeleteNode(ctx context.Context, nodeName string, verbose bool) (err error) {
 	manager.VerboseOutput(verbose, "Deleting node %s from k8s\n", nodeName)
 
-	client, err := k8s_utility_client.NewK8sClients()
-	if err != nil {
-		err = errors.Wrapf(err, "failed creating k8s clients")
+	client, clientErr := k8s_utility_client.NewK8sClients()
+	if clientErr != nil {
+		err = errors.Wrapf(clientErr, "failed creating k8s clients")
 		return err
 	}
 

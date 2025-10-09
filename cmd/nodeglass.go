@@ -13,7 +13,9 @@ import (
 	"reflect"
 )
 
-// nodeglassCmd represents the nodeglass command
+// nodeglassCmd represents the nodeglass command.
+//
+//nolint:gochecknoglobals // Cobra boilerplate
 var nodeglassCmd = &cobra.Command{
 	Use:   "glass",
 	Short: "Deletes and Creates a Kubernetes Node",
@@ -41,26 +43,26 @@ Convenience wrapper that calls Delete() and then Create().
 		}
 
 		switch cloudProvider {
-		case "aws":
+		case cloudProviderAWS:
 			profile := os.Getenv("AWS_PROFILE")
 			role := os.Getenv("AWS_ROLE")
 			dnsManager := cloudflare.NewCloudFlareManager(cfZoneID, cfToken)
-			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
-			if err != nil {
-				log.Fatalf("Failed creating cluster manager: %s", err)
+			cm, cmErr := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
+			if cmErr != nil {
+				log.Fatalf("Failed creating cluster manager: %s", cmErr)
 			}
 
 			// Delete Node
-			err = cm.DeleteNode(nodeName)
-			if err != nil {
-				log.Fatalf("error deleting node %s: %s", nodeName, err)
+			delErr := cm.DeleteNode(nodeName)
+			if delErr != nil {
+				log.Fatalf("error deleting node %s: %s", nodeName, delErr)
 			}
 
 			// TODO Wait for Node Termination
 
-			nodeConfig, err := aws.LoadAWSNodeConfig(nodeBytes)
-			if err != nil {
-				log.Fatalf("Failed loading node config %s: %s", nodeConfigFile, err)
+			nodeConfig, ncErr := aws.LoadAWSNodeConfig(nodeBytes)
+			if ncErr != nil {
+				log.Fatalf("Failed loading node config %s: %s", nodeConfigFile, ncErr)
 			}
 
 			// Error out if we don't get a node config containing data.
@@ -69,9 +71,9 @@ Convenience wrapper that calls Delete() and then Create().
 			}
 
 			// Create Node
-			err = cm.CreateNode(nodeName, nodeRole, nodeConfig, configBytes, []string{string(patchBytes)})
-			if err != nil {
-				log.Fatalf("error creating node %s: %s", nodeName, err)
+			createErr := cm.CreateNode(nodeName, nodeRole, nodeConfig, configBytes, []string{string(patchBytes)})
+			if createErr != nil {
+				log.Fatalf("error creating node %s: %s", nodeName, createErr)
 			}
 
 		default:
@@ -80,6 +82,7 @@ Convenience wrapper that calls Delete() and then Create().
 	},
 }
 
+//nolint:gochecknoinits // Cobra boilerplate
 func init() {
 	nodeCmd.AddCommand(nodeglassCmd)
 }

@@ -12,7 +12,9 @@ import (
 	"os"
 )
 
-// nodedeleteCmd represents the nodedelete command
+// nodedeleteCmd represents the nodedelete command.
+//
+//nolint:gochecknoglobals // Cobra boilerplate
 var nodedeleteCmd = &cobra.Command{
 	Use:   "delete <node name>",
 	Short: "Delete a Kubernetes Node from a Cluster",
@@ -38,19 +40,19 @@ Delete a Kubernetes Node from a Cluster.
 		}
 
 		switch cloudProvider {
-		case "aws":
+		case cloudProviderAWS:
 			profile := os.Getenv("AWS_PROFILE")
 			role := os.Getenv("AWS_ROLE")
 			dnsManager := cloudflare.NewCloudFlareManager(cfZoneID, cfToken)
-			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
-			if err != nil {
-				log.Fatalf("Failed creating cluster manager: %s", err)
+			cm, cmErr := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
+			if cmErr != nil {
+				log.Fatalf("Failed creating cluster manager: %s", cmErr)
 			}
 
 			// Delete Node
-			err = cm.DeleteNode(nodeName)
-			if err != nil {
-				log.Fatalf("error deleting node %s: %s", nodeName, err)
+			delErr := cm.DeleteNode(nodeName)
+			if delErr != nil {
+				log.Fatalf("error deleting node %s: %s", nodeName, delErr)
 			}
 
 		default:
@@ -60,6 +62,7 @@ Delete a Kubernetes Node from a Cluster.
 	},
 }
 
+//nolint:gochecknoinits // Cobra boilerplate
 func init() {
 	nodeCmd.AddCommand(nodedeleteCmd)
 }

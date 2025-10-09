@@ -21,6 +21,7 @@ import (
 	"strconv"
 )
 
+//nolint:gochecknoinits // Package-level initialization required
 func init() {
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
@@ -56,7 +57,7 @@ type AWSClusterManager struct {
 	K8sProviderName            string
 	ScheduleWorkloadsOnCPNodes bool
 	Domain                     string
-	DnsManager                 manager.DNSManager
+	DnsManager                 manager.DNSManager //nolint:staticcheck // Changing to DNSManager would break API
 	Verbose                    bool
 	Config                     aws.Config
 	//TODO: delete the literal ec2 client after mocks are complete
@@ -66,7 +67,7 @@ type AWSClusterManager struct {
 	Context            context.Context
 	Profile            string
 	KubeClient         client.Client
-	FetchedNodesById   map[string]manager.NodeInfo
+	FetchedNodesById   map[string]manager.NodeInfo //nolint:staticcheck // Changing to FetchedNodesByID would break API
 	FetchedNodesByName map[string]manager.NodeInfo
 	ClusterNameRegex   *regexp.Regexp
 }
@@ -100,18 +101,19 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 		}
 
 		// Assume the role
-		stsResp, err := sourceAccount.AssumeRole(ctx, assumeRoleInput)
-		if err != nil {
-			err = errors.Wrapf(err, "failed assuming role %s", role)
+		stsResp, stsErr := sourceAccount.AssumeRole(ctx, assumeRoleInput)
+		if stsErr != nil {
+			err = errors.Wrapf(stsErr, "failed assuming role %s", role)
 			return am, err
 		}
 
 		// pull the creds out of the role assumption response, and use that to make a new config
-		cfg, err = config.LoadDefaultConfig(ctx, config.WithRegion(os.Getenv("AWS_REGION")), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*stsResp.Credentials.AccessKeyId, *stsResp.Credentials.SecretAccessKey, *stsResp.Credentials.SessionToken)))
-		if err != nil {
-			err = errors.Wrapf(err, "failed assuming role %s", role)
+		cfgTemp, cfgErr := config.LoadDefaultConfig(ctx, config.WithRegion(os.Getenv("AWS_REGION")), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*stsResp.Credentials.AccessKeyId, *stsResp.Credentials.SecretAccessKey, *stsResp.Credentials.SessionToken)))
+		if cfgErr != nil {
+			err = errors.Wrapf(cfgErr, "failed assuming role %s", role)
 			return am, err
 		}
+		cfg = cfgTemp
 	}
 
 	// Create AWS clients
@@ -119,15 +121,15 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 	elbClient := elasticloadbalancingv2.NewFromConfig(cfg)
 
 	// Create k8s clients
-	kubeClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		err = errors.Wrapf(err, "failed creating k8s clients")
+	kubeClient, kubeErr := client.New(ctrl.GetConfigOrDie(), client.Options{})
+	if kubeErr != nil {
+		err = errors.Wrapf(kubeErr, "failed creating k8s clients")
 		return am, err
 	}
 
-	re, err := regexp.Compile(fmt.Sprintf(".*%s.*", clusterName))
-	if err != nil {
-		err = errors.Wrapf(err, "cluster name %s doesn't compile into a regex", clusterName)
+	re, reErr := regexp.Compile(fmt.Sprintf(".*%s.*", clusterName))
+	if reErr != nil {
+		err = errors.Wrapf(reErr, "cluster name %s doesn't compile into a regex", clusterName)
 		return am, err
 	}
 
@@ -151,8 +153,9 @@ func NewAWSClusterManager(ctx context.Context, clusterName string, profile strin
 	return am, err
 }
 
-func (am *AWSClusterManager) ClusterName() string {
-	return am.Name
+func (am *AWSClusterManager) ClusterName() (name string) {
+	name = am.Name
+	return name
 }
 
 //	func (am *AWSClusterManager) CloudProviderName() string {
@@ -162,11 +165,15 @@ func (am *AWSClusterManager) ClusterName() string {
 //	func (am *AWSClusterManager) K8sProviderName() string {
 //		return am.K8sProviderName
 //	}
-func (am *AWSClusterManager) GetScheduleWorkloadsOnCPNodes() bool {
-	return am.ScheduleWorkloadsOnCPNodes
+//
+//nolint:staticcheck // Comment format is intentional for consistency
+func (am *AWSClusterManager) GetScheduleWorkloadsOnCPNodes() (result bool) {
+	result = am.ScheduleWorkloadsOnCPNodes
+	return result
 }
-func (am *AWSClusterManager) GetVerbose() bool {
-	return am.Verbose
+func (am *AWSClusterManager) GetVerbose() (result bool) {
+	result = am.Verbose
+	return result
 }
 
 //
@@ -181,18 +188,18 @@ func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.C
 	info.Name = clusterName
 
 	// Get the nodes for the cluster
-	nodes, err := am.GetNodes(clusterName)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting cluster nodes")
+	nodes, nodesErr := am.GetNodes(clusterName)
+	if nodesErr != nil {
+		err = errors.Wrapf(nodesErr, "failed getting cluster nodes")
 		return info, err
 	}
 
 	info.Nodes = nodes
 
 	// Get the load balancers for the cluster
-	lbs, err := am.GetClusterLBs()
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting loadbalancers for cluster %s", clusterName)
+	lbs, lbsErr := am.GetClusterLBs()
+	if lbsErr != nil {
+		err = errors.Wrapf(lbsErr, "failed getting loadbalancers for cluster %s", clusterName)
 		return info, err
 	}
 
@@ -240,13 +247,4 @@ func LoadBalancerName(clusterName string, lbType string) (lbName string, err err
 	}
 
 	return lbName, err
-}
-
-type dnsManager struct{}
-
-func (dnsManager) RegisterNode(ctx context.Context, node manager.ClusterNode, verbose bool) (err error) {
-	return err
-}
-func (dnsManager) DeregisterNode(ctx context.Context, nodeName string, verbose bool) (err error) {
-	return err
 }

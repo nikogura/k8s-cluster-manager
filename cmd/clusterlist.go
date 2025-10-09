@@ -12,7 +12,9 @@ import (
 	"os"
 )
 
-// clusterlistCmd represents the clusterlist command
+// clusterlistCmd represents the clusterlist command.
+//
+//nolint:gochecknoglobals // Cobra boilerplate
 var clusterlistCmd = &cobra.Command{
 	Use:   "list [cluster-name]",
 	Short: "List information about a K8S Cluster",
@@ -38,18 +40,18 @@ List information about a K8S Cluster
 		}
 
 		switch cloudProvider {
-		case "aws":
+		case cloudProviderAWS:
 			profile := os.Getenv("AWS_PROFILE")
 			role := os.Getenv("AWS_ROLE")
 			dnsManager := cloudflare.NewCloudFlareManager(cfZoneID, cfToken)
-			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
-			if err != nil {
-				log.Fatalf("Failed creating cluster manager: %s", err)
+			cm, cmErr := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
+			if cmErr != nil {
+				log.Fatalf("Failed creating cluster manager: %s", cmErr)
 			}
 
-			info, err := cm.DescribeCluster(clusterName)
-			if err != nil {
-				log.Fatalf("Failed describing cluster: %s", err)
+			info, descErr := cm.DescribeCluster(clusterName)
+			if descErr != nil {
+				log.Fatalf("Failed describing cluster: %s", descErr)
 			}
 
 			info.ConsolePrint()
@@ -60,6 +62,7 @@ List information about a K8S Cluster
 	},
 }
 
+//nolint:gochecknoinits // Cobra boilerplate
 func init() {
 	clusterCmd.AddCommand(clusterlistCmd)
 

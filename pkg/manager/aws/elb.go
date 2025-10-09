@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/sirupsen/logrus"
-	//"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	//"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types".
 	"context"
 	"github.com/nikogura/k8s-cluster-manager/pkg/manager"
 	"github.com/pkg/errors"
@@ -13,12 +13,12 @@ import (
 	"sort"
 )
 
-const API_SERVER_PORT = 6443
-const CLEARTEXT_INGRESS_PORT_INT = 30080
-const TLS_INGRESS_PORT_INT = 30443
-const CLEARTEXT_INGRESS_PORT_EXT = 31080
-const TLS_INGRESS_PORT_EXT = 31443
-const ELB_CLUSTER_TAG = "Cluster"
+const APIServerPort = 6443
+const CleartextIngressPortInt = 30080
+const TLSIngressPortInt = 30443
+const CleartextIngressPortExt = 31080
+const TLSIngressPortExt = 31443
+const ELBClusterTag = "Cluster"
 
 type ELBClient interface {
 	DescribeLoadBalancers(ctx context.Context, params *elasticloadbalancingv2.DescribeLoadBalancersInput, optFns ...func(*elasticloadbalancingv2.Options)) (*elasticloadbalancingv2.DescribeLoadBalancersOutput, error)
@@ -59,99 +59,127 @@ func (am *AWSClusterManager) GetClusterLBs() (lbs []manager.LBInfo, err error) {
 	input := &elasticloadbalancingv2.DescribeLoadBalancersInput{}
 
 	// Get all the load balancers
-	output, err := am.ELBClient.DescribeLoadBalancers(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting lbs for cluster %s", am.ClusterName())
+	output, descErr := am.ELBClient.DescribeLoadBalancers(am.Context, input)
+	if descErr != nil {
+		err = errors.Wrapf(descErr, "failed getting lbs for cluster %s", am.ClusterName())
 		return lbs, err
 	}
 
 	// Iterate through the list of load balancers, cos you can't filter by tag
 	for _, lb := range output.LoadBalancers {
-		// Find the ARN
-		arn := *lb.LoadBalancerArn
-
-		// Look for the tags by ARN
-		tagInput := &elasticloadbalancingv2.DescribeTagsInput{
-			ResourceArns: []string{arn},
-		}
-
-		// Describe the tags
-		tagOutput, err := am.ELBClient.DescribeTags(am.Context, tagInput)
-		if err != nil {
-			err = errors.Wrapf(err, "failed fetching tags")
+		lbInfo, shouldInclude, checkErr := am.checkAndBuildLBInfo(lb)
+		if checkErr != nil {
+			err = checkErr
 			return lbs, err
 		}
-
-		apiserverRegex := regexp.MustCompile(`.*apiserver.*`)
-
-		// Iterate through the cruft and find one that has a tag for ELB_CLUSTER_TAG and a value equal to our cluster name
-		for _, td := range tagOutput.TagDescriptions {
-			for _, tag := range td.Tags {
-				if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == am.ClusterName() {
-
-					lbInfo := manager.LBInfo{
-						Name:         *lb.LoadBalancerName,
-						Targets:      make([]manager.LBTargetInfo, 0),
-						TargetGroups: make([]manager.LBTargetGroupInfo, 0),
-					}
-
-					if apiserverRegex.MatchString(*lb.LoadBalancerName) {
-						lbInfo.IsApiServer = true
-					}
-
-					// Get Target Groups - have to get 'em all once again, since there's no filter
-					tgOutput, err := am.GetTargetGroupsForLB(arn)
-					if err != nil {
-						err = errors.Wrapf(err, "failed getting target groups")
-						return lbs, err
-					}
-
-					// iterate over the target groups, also looking for the cluster name  (we use the cluster name in all lb's and tg's, which makes this possible)
-					for _, tg := range tgOutput.TargetGroups {
-						tgArn := *tg.TargetGroupArn
-
-						tagInput = &elasticloadbalancingv2.DescribeTagsInput{
-							ResourceArns: []string{tgArn},
-						}
-
-						// Describe the tags on the TG
-						tagOutput, err = am.ELBClient.DescribeTags(am.Context, tagInput)
-						if err != nil {
-							err = errors.Wrapf(err, "failed fetching tags for %s", tgArn)
-							return lbs, err
-						}
-						// already inside this loop
-						//for _, tag := range td.Tags {
-						//if *tag.Key == ELB_CLUSTER_TAG && *tag.Value == am.ClusterName() {
-						// Record the Target Group info
-						tgInfo := manager.LBTargetGroupInfo{
-							Name: *tg.TargetGroupName,
-							Arn:  *tg.TargetGroupArn,
-							Port: int32(*tg.Port),
-						}
-						lbInfo.TargetGroups = append(lbInfo.TargetGroups, tgInfo)
-
-						// get the targets
-						targets, err := am.GetTargets(*tg.TargetGroupName)
-						if err != nil {
-							err = errors.Wrapf(err, "failed getting target %s", *tg.TargetGroupName)
-							return lbs, err
-						}
-
-						lbInfo.Targets = targets
-
-						//}
-						//}
-					}
-
-					// add it to the pile
-					lbs = append(lbs, lbInfo)
-				}
-			}
+		if shouldInclude {
+			lbs = append(lbs, lbInfo)
 		}
 	}
 
 	return lbs, err
+}
+
+func (am *AWSClusterManager) checkAndBuildLBInfo(lb types.LoadBalancer) (lbInfo manager.LBInfo, shouldInclude bool, err error) {
+	// Find the ARN
+	arn := *lb.LoadBalancerArn
+
+	// Look for the tags by ARN
+	tagInput := &elasticloadbalancingv2.DescribeTagsInput{
+		ResourceArns: []string{arn},
+	}
+
+	// Describe the tags
+	tagOutput, tagErr := am.ELBClient.DescribeTags(am.Context, tagInput)
+	if tagErr != nil {
+		err = errors.Wrapf(tagErr, "failed fetching tags")
+		shouldInclude = false
+		return lbInfo, shouldInclude, err
+	}
+
+	// Check if this LB belongs to our cluster
+	belongsToCluster := am.checkLBBelongsToCluster(tagOutput)
+	if !belongsToCluster {
+		shouldInclude = false
+		return lbInfo, shouldInclude, err
+	}
+
+	// Build LB info
+	apiserverRegex := regexp.MustCompile(`.*apiserver.*`)
+	lbInfo = manager.LBInfo{
+		Name:         *lb.LoadBalancerName,
+		Targets:      make([]manager.LBTargetInfo, 0),
+		TargetGroups: make([]manager.LBTargetGroupInfo, 0),
+		IsAPIServer:  apiserverRegex.MatchString(*lb.LoadBalancerName),
+	}
+
+	// Get target groups and targets
+	populateErr := am.populateLBTargetGroups(&lbInfo, arn)
+	if populateErr != nil {
+		err = populateErr
+		shouldInclude = false
+		return lbInfo, shouldInclude, err
+	}
+
+	shouldInclude = true
+	return lbInfo, shouldInclude, err
+}
+
+func (am *AWSClusterManager) checkLBBelongsToCluster(tagOutput *elasticloadbalancingv2.DescribeTagsOutput) (belongsToCluster bool) {
+	for _, td := range tagOutput.TagDescriptions {
+		for _, tag := range td.Tags {
+			if *tag.Key == ELBClusterTag && *tag.Value == am.ClusterName() {
+				belongsToCluster = true
+				return belongsToCluster
+			}
+		}
+	}
+	belongsToCluster = false
+	return belongsToCluster
+}
+
+func (am *AWSClusterManager) populateLBTargetGroups(lbInfo *manager.LBInfo, lbArn string) (err error) {
+	// Get Target Groups - have to get 'em all once again, since there's no filter
+	tgOutput, tgErr := am.GetTargetGroupsForLB(lbArn)
+	if tgErr != nil {
+		err = errors.Wrapf(tgErr, "failed getting target groups")
+		return err
+	}
+
+	// iterate over the target groups, also looking for the cluster name  (we use the cluster name in all lb's and tg's, which makes this possible)
+	for _, tg := range tgOutput.TargetGroups {
+		tgArn := *tg.TargetGroupArn
+
+		tagInput := &elasticloadbalancingv2.DescribeTagsInput{
+			ResourceArns: []string{tgArn},
+		}
+
+		// Describe the tags on the TG
+		_, tagErr := am.ELBClient.DescribeTags(am.Context, tagInput)
+		if tagErr != nil {
+			err = errors.Wrapf(tagErr, "failed fetching tags for %s", tgArn)
+			return err
+		}
+
+		// Record the Target Group info
+		tgInfo := manager.LBTargetGroupInfo{
+			Name: *tg.TargetGroupName,
+			Arn:  *tg.TargetGroupArn,
+			Port: *tg.Port,
+		}
+		lbInfo.TargetGroups = append(lbInfo.TargetGroups, tgInfo)
+
+		// get the targets
+		targets, targErr := am.GetTargets(*tg.TargetGroupName)
+		if targErr != nil {
+			err = errors.Wrapf(targErr, "failed getting target %s", *tg.TargetGroupName)
+			return err
+		}
+
+		lbInfo.Targets = targets
+	}
+
+	return err
 }
 
 /*
@@ -174,9 +202,9 @@ func (am *AWSClusterManager) UpdateLB() (err error) {
 func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err error) {
 	manager.VerboseOutput(am.GetVerbose(), "Deregistering node %s from load balancers in cluster %s \n", nodeName, am.ClusterName())
 
-	lbs, err := am.GetClusterLBs()
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting cluster LB's")
+	lbs, lbsErr := am.GetClusterLBs()
+	if lbsErr != nil {
+		err = errors.Wrapf(lbsErr, "failed getting cluster LB's")
 		return err
 	}
 
@@ -185,9 +213,9 @@ func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err
 		for _, tg := range lb.TargetGroups {
 			// Register the node in the TargetGroup
 			manager.VerboseOutput(am.GetVerbose(), "Degistering Node %s with Target Group %s on Port %d\n", nodeName, tg.Arn, tg.Port)
-			err = am.DeregisterTarget(tg.Arn, nodeID, tg.Port)
-			if err != nil {
-				err = errors.Wrapf(err, "failed deregistering %s on tg %s", nodeName, tg.Arn)
+			deregErr := am.DeregisterTarget(tg.Arn, nodeID, tg.Port)
+			if deregErr != nil {
+				err = errors.Wrapf(deregErr, "failed deregistering %s on tg %s", nodeName, tg.Arn)
 				return err
 			}
 		}
@@ -197,21 +225,19 @@ func (am *AWSClusterManager) DeRegisterNode(nodeName string, nodeID string) (err
 }
 
 func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port int32) (err error) {
-	p := int32(port)
-
 	input := &elasticloadbalancingv2.DeregisterTargetsInput{
 		TargetGroupArn: aws.String(tgARN),
 		Targets: []types.TargetDescription{
 			{
 				Id:   aws.String(nodeID),
-				Port: &p,
+				Port: &port,
 			},
 		},
 	}
 
-	_, err = am.ELBClient.DeregisterTargets(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed deregistering target ID %s", nodeID)
+	_, deregErr := am.ELBClient.DeregisterTargets(am.Context, input)
+	if deregErr != nil {
+		err = errors.Wrapf(deregErr, "failed deregistering target ID %s", nodeID)
 		return err
 	}
 
@@ -221,21 +247,21 @@ func (am *AWSClusterManager) DeregisterTarget(tgARN string, nodeID string, port 
 func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) {
 	manager.VerboseOutput(am.GetVerbose(), "Registering Node %s with role %s\n", node.Name(), node.Role())
 
-	lbs, err := am.GetClusterLBs()
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting cluster LB's")
+	lbs, lbsErr := am.GetClusterLBs()
+	if lbsErr != nil {
+		err = errors.Wrapf(lbsErr, "failed getting cluster LB's")
 		return err
 	}
 
 	// Add to all TG's and ports for all LB's for the cluster for workers
 	for _, lb := range lbs {
 		// If we're looking at the apiserver LB, and this is not a CP node, move on.
-		if node.Role() != manager.NODE_ROLE_CP && lb.IsApiServer {
+		if node.Role() != manager.NodeRoleCp && lb.IsAPIServer {
 			continue // skip registration
 		}
 
 		// If it's not an apiserver LB, and this is a CP node, and we don't schedule workloads here, move on
-		if !lb.IsApiServer && node.Role() == manager.NODE_ROLE_CP && !am.GetScheduleWorkloadsOnCPNodes() {
+		if !lb.IsAPIServer && node.Role() == manager.NodeRoleCp && !am.GetScheduleWorkloadsOnCPNodes() {
 			continue // skip registration
 		}
 
@@ -243,9 +269,9 @@ func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) 
 		for _, tg := range lb.TargetGroups {
 			// Register the node in the TargetGroup
 			manager.VerboseOutput(am.GetVerbose(), "Registering Node %s with Target Group %s on Port %d\n", node.ID(), tg.Arn, tg.Port)
-			err = am.RegisterTarget(tg.Arn, node.ID(), tg.Port)
-			if err != nil {
-				err = errors.Wrapf(err, "failed registering %s on tg %s", node.ID(), tg.Arn)
+			regErr := am.RegisterTarget(tg.Arn, node.ID(), tg.Port)
+			if regErr != nil {
+				err = errors.Wrapf(regErr, "failed registering %s on tg %s", node.ID(), tg.Arn)
 				return err
 			}
 		}
@@ -255,21 +281,19 @@ func (am *AWSClusterManager) RegisterNode(node manager.ClusterNode) (err error) 
 }
 
 func (am *AWSClusterManager) RegisterTarget(tgARN string, nodeID string, port int32) (err error) {
-	p := int32(port)
-
 	input := &elasticloadbalancingv2.RegisterTargetsInput{
 		TargetGroupArn: aws.String(tgARN),
 		Targets: []types.TargetDescription{
 			{
 				Id:   aws.String(nodeID),
-				Port: &p,
+				Port: &port,
 			},
 		},
 	}
 
-	_, err = am.ELBClient.RegisterTargets(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed registering target ID %s", nodeID)
+	_, regErr := am.ELBClient.RegisterTargets(am.Context, input)
+	if regErr != nil {
+		err = errors.Wrapf(regErr, "failed registering target ID %s", nodeID)
 		return err
 	}
 	return err
@@ -285,9 +309,10 @@ func (am *AWSClusterManager) GetTargetGroups(tgName string) (tgOutput *elasticlo
 		input.Names = []string{tgName}
 	}
 
-	tgOutput, err = am.ELBClient.DescribeTargetGroups(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting targetGroup %s", tgName)
+	var descErr error
+	tgOutput, descErr = am.ELBClient.DescribeTargetGroups(am.Context, input)
+	if descErr != nil {
+		err = errors.Wrapf(descErr, "failed getting targetGroup %s", tgName)
 		return tgOutput, err
 	}
 
@@ -302,9 +327,10 @@ func (am *AWSClusterManager) GetTargetGroupsForLB(lbArn string) (tgOutput *elast
 		LoadBalancerArn: aws.String(lbArn),
 	}
 
-	tgOutput, err = am.ELBClient.DescribeTargetGroups(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting targetGroup for lb %s", lbArn)
+	var descErr error
+	tgOutput, descErr = am.ELBClient.DescribeTargetGroups(am.Context, input)
+	if descErr != nil {
+		err = errors.Wrapf(descErr, "failed getting targetGroup for lb %s", lbArn)
 		return tgOutput, err
 	}
 
@@ -315,9 +341,9 @@ func (am *AWSClusterManager) GetTargetGroupsForLB(lbArn string) (tgOutput *elast
 func (am *AWSClusterManager) GetTargets(tgName string) (targets []manager.LBTargetInfo, err error) {
 	targets = make([]manager.LBTargetInfo, 0)
 	// Need the ARN of the TG
-	groups, err := am.GetTargetGroups(tgName)
-	if err != nil {
-		err = errors.Wrapf(err, "failed looking up target group %s", tgName)
+	groups, groupsErr := am.GetTargetGroups(tgName)
+	if groupsErr != nil {
+		err = errors.Wrapf(groupsErr, "failed looking up target group %s", tgName)
 		return targets, err
 	}
 
@@ -334,9 +360,9 @@ func (am *AWSClusterManager) GetTargets(tgName string) (targets []manager.LBTarg
 		Targets:        nil,
 	}
 
-	output, err := am.ELBClient.DescribeTargetHealth(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting target group health for %s", tgName)
+	output, descErr := am.ELBClient.DescribeTargetHealth(am.Context, input)
+	if descErr != nil {
+		err = errors.Wrapf(descErr, "failed getting target group health for %s", tgName)
 		return targets, err
 	}
 
@@ -344,20 +370,20 @@ func (am *AWSClusterManager) GetTargets(tgName string) (targets []manager.LBTarg
 		var nodeInfo manager.NodeInfo
 
 		// Try to pull the node info from cache, else we'll be looking up the same nodes over and over
-		node, ok := am.FetchedNodesById[*t.Target.Id]
+		cachedNode, ok := am.FetchedNodesById[*t.Target.Id]
 		if ok {
-			nodeInfo = node
+			nodeInfo = cachedNode
 		} else {
-			node, err := am.GetNodeById(*t.Target.Id)
-			if err != nil {
-				err = errors.Wrapf(err, "failed getting node by ID %s", *t.Target.Id)
+			fetchedNode, nodeErr := am.GetNodeById(*t.Target.Id)
+			if nodeErr != nil {
+				err = errors.Wrapf(nodeErr, "failed getting node by ID %s", *t.Target.Id)
 				return targets, err
-			} else if len(node.ID) == 0 {
+			} else if len(fetchedNode.ID) == 0 {
 				logrus.Warnf("id %s exists but is not owned by this account", *t.Target.Id)
 				return targets, err
 			}
 
-			nodeInfo = node
+			nodeInfo = fetchedNode
 		}
 
 		info := manager.LBTargetInfo{
@@ -371,9 +397,24 @@ func (am *AWSClusterManager) GetTargets(tgName string) (targets []manager.LBTarg
 	}
 
 	// Sort the output alphabetically
-	sort.Slice(targets, func(i, j int) bool {
-		return targets[i].Name < targets[j].Name
-	})
+	targets = sortLBTargetsByName(targets)
 
 	return targets, err
+}
+
+func sortLBTargetsByName(targets []manager.LBTargetInfo) (sorted []manager.LBTargetInfo) {
+	sorted = make([]manager.LBTargetInfo, len(targets))
+	copy(sorted, targets)
+	// Use sort.Slice with type assertion to avoid closure with named returns
+	sort.Slice(sorted, lbTargetComparator{targets: sorted}.Less)
+	return sorted
+}
+
+type lbTargetComparator struct {
+	targets []manager.LBTargetInfo
+}
+
+func (c lbTargetComparator) Less(i, j int) (less bool) {
+	less = c.targets[i].Name < c.targets[j].Name
+	return less
 }

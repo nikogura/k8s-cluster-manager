@@ -13,7 +13,9 @@ import (
 	"reflect"
 )
 
-// nodecreateCmd represents the nodecreate command
+// nodecreateCmd represents the nodecreate command.
+//
+//nolint:gochecknoglobals // Cobra boilerplate
 var nodecreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new Kubernetes Node",
@@ -45,18 +47,18 @@ Create a new Kubernetes Node
 		}
 
 		switch cloudProvider {
-		case "aws":
+		case cloudProviderAWS:
 			profile := os.Getenv("AWS_PROFILE")
 			role := os.Getenv("AWS_ROLE")
 			dnsManager := cloudflare.NewCloudFlareManager(cfZoneID, cfToken)
-			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
-			if err != nil {
-				log.Fatalf("Failed creating cluster manager: %s", err)
+			cm, cmErr := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
+			if cmErr != nil {
+				log.Fatalf("Failed creating cluster manager: %s", cmErr)
 			}
 
-			nodeConfig, err := aws.LoadAWSNodeConfig(nodeBytes)
-			if err != nil {
-				log.Fatalf("Failed loading node config %s: %s", nodeConfigFile, err)
+			nodeConfig, ncErr := aws.LoadAWSNodeConfig(nodeBytes)
+			if ncErr != nil {
+				log.Fatalf("Failed loading node config %s: %s", nodeConfigFile, ncErr)
 			}
 
 			// Override Node Type if provided
@@ -70,9 +72,9 @@ Create a new Kubernetes Node
 			}
 
 			// Create Node
-			err = cm.CreateNode(nodeName, nodeRole, nodeConfig, configBytes, []string{string(patchBytes)})
-			if err != nil {
-				log.Fatalf("error creating node %s: %s", nodeName, err)
+			createErr := cm.CreateNode(nodeName, nodeRole, nodeConfig, configBytes, []string{string(patchBytes)})
+			if createErr != nil {
+				log.Fatalf("error creating node %s: %s", nodeName, createErr)
 			}
 
 		default:
@@ -81,6 +83,7 @@ Create a new Kubernetes Node
 	},
 }
 
+//nolint:gochecknoinits // Cobra boilerplate
 func init() {
 	nodeCmd.AddCommand(nodecreateCmd)
 

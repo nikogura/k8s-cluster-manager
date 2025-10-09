@@ -10,10 +10,10 @@ import (
 	"strings"
 )
 
-const TEST_INSTANCEID = "i-0af01c0123456789a"
-const TEST_NODENAME = "test-cp-1"
-const TEST_EC2_SG_TAG = "Cluster"
-const TEST_EC2_SG_TAG_VALUE = "test-cluster"
+const TestInstanceID = "i-0af01c0123456789a"
+const TestNodeName = "test-cp-1"
+const TestEC2SGTag = "Cluster"
+const TestEC2SGTagValue = "test-cluster"
 
 type Ec2Client interface {
 	DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
@@ -29,14 +29,14 @@ type MockEc2ClientGetNodeOneRunningInst struct {
 	*ec2.Client
 }
 
-func (MockEc2ClientGetNodeOneRunningInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
-	return &ec2.DescribeInstancesOutput{
+func (MockEc2ClientGetNodeOneRunningInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeInstancesOutput, err error) {
+	output = &ec2.DescribeInstancesOutput{
 		Reservations: []types.Reservation{
 			{
 				Instances: []types.Instance{
 					{
 						State:        &types.InstanceState{Name: types.InstanceStateNameRunning},
-						InstanceId:   aws.String(TEST_INSTANCEID),
+						InstanceId:   aws.String(TestInstanceID),
 						InstanceType: types.InstanceTypeT3Medium,
 						Tags: []types.Tag{
 							{
@@ -48,21 +48,22 @@ func (MockEc2ClientGetNodeOneRunningInst) DescribeInstances(ctx context.Context,
 				},
 			},
 		},
-	}, nil
+	}
+	return output, err
 }
 
 type MockEc2ClientGetNodeStoppedInst struct {
 	*ec2.Client
 }
 
-func (MockEc2ClientGetNodeStoppedInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
-	return &ec2.DescribeInstancesOutput{
+func (MockEc2ClientGetNodeStoppedInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeInstancesOutput, err error) {
+	output = &ec2.DescribeInstancesOutput{
 		Reservations: []types.Reservation{
 			{
 				Instances: []types.Instance{
 					{
 						State:        &types.InstanceState{Name: types.InstanceStateNameStopped},
-						InstanceId:   aws.String(TEST_INSTANCEID),
+						InstanceId:   aws.String(TestInstanceID),
 						InstanceType: types.InstanceTypeT3Medium,
 						Tags: []types.Tag{
 							{
@@ -74,7 +75,8 @@ func (MockEc2ClientGetNodeStoppedInst) DescribeInstances(ctx context.Context, pa
 				},
 			},
 		},
-	}, nil
+	}
+	return output, err
 }
 
 type MockEc2ClientGetNodeNoInst struct {
@@ -82,18 +84,20 @@ type MockEc2ClientGetNodeNoInst struct {
 }
 
 // TODO: validate response content when using filters and no matching instances exist
-func (MockEc2ClientGetNodeNoInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
-	return &ec2.DescribeInstancesOutput{
+func (MockEc2ClientGetNodeNoInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeInstancesOutput, err error) {
+	output = &ec2.DescribeInstancesOutput{
 		Reservations: []types.Reservation{},
-	}, nil
+	}
+	return output, err
 }
 
+//nolint:staticcheck // Changing to GetNodeByID would break API
 type MockEc2ClientGetNodeByIdInstExists struct {
 	*ec2.Client
 }
 
-func (MockEc2ClientGetNodeByIdInstExists) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
-	return &ec2.DescribeInstancesOutput{
+func (MockEc2ClientGetNodeByIdInstExists) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeInstancesOutput, err error) {
+	output = &ec2.DescribeInstancesOutput{
 		Reservations: []types.Reservation{
 			{
 				Instances: []types.Instance{
@@ -110,25 +114,28 @@ func (MockEc2ClientGetNodeByIdInstExists) DescribeInstances(ctx context.Context,
 				},
 			},
 		},
-	}, nil
+	}
+	return output, err
 }
 
+//nolint:staticcheck // Changing to GetNodeByID would break API
 type MockEc2ClientGetNodeByIdNoInst struct {
 	*ec2.Client
 }
 
-func (MockEc2ClientGetNodeByIdNoInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
-	return &ec2.DescribeInstancesOutput{
+func (MockEc2ClientGetNodeByIdNoInst) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeInstancesOutput, err error) {
+	output = &ec2.DescribeInstancesOutput{
 		Reservations: []types.Reservation{},
-	}, nil
+	}
+	return output, err
 }
 
 type MockEc2ClientGetNodes struct {
 	*ec2.Client
 }
 
-func (MockEc2ClientGetNodes) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
-	output := &ec2.DescribeInstancesOutput{
+func (MockEc2ClientGetNodes) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeInstancesOutput, err error) {
+	output = &ec2.DescribeInstancesOutput{
 		Reservations: []types.Reservation{},
 	}
 
@@ -136,10 +143,10 @@ func (MockEc2ClientGetNodes) DescribeInstances(ctx context.Context, params *ec2.
 	//this mock is a "guard" on the regex pattern in the GetNodes method, and unit tests using it will fail if the regex is changed
 	//TODO: a better fixture?
 	nodeNames := []string{
-		fmt.Sprintf("%s-b-node-name", TEST_CLUSTER_TAG_VALUE),
-		fmt.Sprintf("%s-z-node-name", TEST_CLUSTER_TAG_VALUE),
-		fmt.Sprintf("%s-a-node-name", TEST_CLUSTER_TAG_VALUE),
-		fmt.Sprintf("not-%s-a-node-name", TEST_CLUSTER_TAG_VALUE),
+		fmt.Sprintf("%s-b-node-name", TestClusterTagValue),
+		fmt.Sprintf("%s-z-node-name", TestClusterTagValue),
+		fmt.Sprintf("%s-a-node-name", TestClusterTagValue),
+		fmt.Sprintf("not-%s-a-node-name", TestClusterTagValue),
 	}
 
 	nodeRegex := fmt.Sprintf("%s%s", "^", params.Filters[0].Values[0])
@@ -166,82 +173,86 @@ func (MockEc2ClientGetNodes) DescribeInstances(ctx context.Context, params *ec2.
 		}
 	}
 
-	return output, nil
+	return output, err
 }
 
 type MockEc2ClientOneSecurityGroup struct {
 	*ec2.Client
 }
 
-func (MockEc2ClientOneSecurityGroup) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error) {
-	return &ec2.DescribeSecurityGroupsOutput{
+func (MockEc2ClientOneSecurityGroup) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeSecurityGroupsOutput, err error) {
+	output = &ec2.DescribeSecurityGroupsOutput{
 		SecurityGroups: []types.SecurityGroup{
 			{
 				Tags: []types.Tag{
 					{
-						Key:   aws.String(TEST_EC2_SG_TAG),
-						Value: aws.String(TEST_EC2_SG_TAG_VALUE),
+						Key:   aws.String(TestEC2SGTag),
+						Value: aws.String(TestEC2SGTagValue),
 					},
 				},
 			},
 		},
-	}, nil
+	}
+	return output, err
 }
 
 type MockEc2ClientNoSecurityGroups struct {
 	*ec2.Client
 }
 
-func (MockEc2ClientNoSecurityGroups) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error) {
-	return &ec2.DescribeSecurityGroupsOutput{
+func (MockEc2ClientNoSecurityGroups) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeSecurityGroupsOutput, err error) {
+	output = &ec2.DescribeSecurityGroupsOutput{
 		SecurityGroups: nil,
-	}, nil
+	}
+	return output, err
 }
 
 type MockEc2ClientOneNodeSecurityGroup struct {
 	*ec2.Client
 }
 
-func (MockEc2ClientOneNodeSecurityGroup) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error) {
-	return &ec2.DescribeSecurityGroupsOutput{
+func (MockEc2ClientOneNodeSecurityGroup) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeSecurityGroupsOutput, err error) {
+	output = &ec2.DescribeSecurityGroupsOutput{
 		SecurityGroups: []types.SecurityGroup{
 			{
 				Tags: []types.Tag{
 					{
-						Key:   aws.String(TEST_EC2_SG_TAG),
-						Value: aws.String(TEST_EC2_SG_TAG_VALUE),
+						Key:   aws.String(TestEC2SGTag),
+						Value: aws.String(TestEC2SGTagValue),
 					},
 				},
 				IpPermissions: []types.IpPermission{
 					{
-						ToPort: aws.Int32(TALOS_CONTROL_PORT),
+						ToPort: aws.Int32(TalosControlPort),
 					},
 				},
 			},
 		},
-	}, nil
+	}
+	return output, err
 }
 
 type MockEc2ClientNoNodeSecurityGroup struct {
 	*ec2.Client
 }
 
-func (MockEc2ClientNoNodeSecurityGroup) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error) {
-	return &ec2.DescribeSecurityGroupsOutput{
+func (MockEc2ClientNoNodeSecurityGroup) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (output *ec2.DescribeSecurityGroupsOutput, err error) {
+	output = &ec2.DescribeSecurityGroupsOutput{
 		SecurityGroups: []types.SecurityGroup{
 			{
 				Tags: []types.Tag{
 					{
-						Key:   aws.String(TEST_EC2_SG_TAG),
-						Value: aws.String(TEST_EC2_SG_TAG_VALUE),
+						Key:   aws.String(TestEC2SGTag),
+						Value: aws.String(TestEC2SGTagValue),
 					},
 				},
 				IpPermissions: []types.IpPermission{
 					{
-						ToPort: aws.Int32(TALOS_CONTROL_PORT + 1),
+						ToPort: aws.Int32(TalosControlPort + 1),
 					},
 				},
 			},
 		},
-	}, nil
+	}
+	return output, err
 }

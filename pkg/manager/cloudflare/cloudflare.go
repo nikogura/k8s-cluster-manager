@@ -63,9 +63,9 @@ func (c CloudFlareManager) DeregisterNode(ctx context.Context, nodeName string, 
 		}),
 	}
 
-	resp, err := client.DNS.Records.List(ctx, listParams)
-	if err != nil {
-		err = errors.Wrapf(err, "failed listing DNS records in zone.")
+	resp, listErr := client.DNS.Records.List(ctx, listParams)
+	if listErr != nil {
+		err = errors.Wrapf(listErr, "failed listing DNS records in zone.")
 		return err
 	}
 

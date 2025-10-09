@@ -62,7 +62,7 @@ func TestGetNode(t *testing.T) {
 	}{
 		{
 			name:     "ACM.GetNode() - One Running Instance",
-			nodeName: TEST_NODENAME,
+			nodeName: TestNodeName,
 			acm: AWSClusterManager{
 				Ec2Client:          MockEc2ClientGetNodeOneRunningInst{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
@@ -70,23 +70,23 @@ func TestGetNode(t *testing.T) {
 			},
 			expect: expect{
 				manager.NodeInfo{
-					Name:         TEST_NODENAME,
-					ID:           TEST_INSTANCEID,
+					Name:         TestNodeName,
+					ID:           TestInstanceID,
 					InstanceType: "t3.medium",
 				},
 				AWSClusterManager{
 					Ec2Client: MockEc2ClientGetNodeOneRunningInst{},
 					FetchedNodesByName: map[string]manager.NodeInfo{
-						TEST_NODENAME: {
-							Name:         TEST_NODENAME,
-							ID:           TEST_INSTANCEID,
+						TestNodeName: {
+							Name:         TestNodeName,
+							ID:           TestInstanceID,
 							InstanceType: "t3.medium",
 						},
 					},
 					FetchedNodesById: map[string]manager.NodeInfo{
-						TEST_INSTANCEID: {
-							Name:         TEST_NODENAME,
-							ID:           TEST_INSTANCEID,
+						TestInstanceID: {
+							Name:         TestNodeName,
+							ID:           TestInstanceID,
 							InstanceType: "t3.medium",
 						},
 					},
@@ -95,7 +95,7 @@ func TestGetNode(t *testing.T) {
 		},
 		{
 			name:     "ACM.GetNode() - Stopped Instance",
-			nodeName: TEST_NODENAME,
+			nodeName: TestNodeName,
 			acm: AWSClusterManager{
 				Ec2Client:          MockEc2ClientGetNodeStoppedInst{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
@@ -112,7 +112,7 @@ func TestGetNode(t *testing.T) {
 		},
 		{
 			name:     "ACM.GetNode() - No Instance",
-			nodeName: TEST_NODENAME,
+			nodeName: TestNodeName,
 			acm: AWSClusterManager{
 				Ec2Client:          MockEc2ClientGetNodeNoInst{},
 				FetchedNodesByName: make(map[string]manager.NodeInfo),
@@ -159,7 +159,7 @@ func TestGetNodeById(t *testing.T) {
 
 	//this unit test cannot test whether the instance Name tag value is "correct",
 	//as it is not part of the input. It *can* be tested in an integration test, however
-	nodeName := fmt.Sprintf("name of %s", TEST_INSTANCEID)
+	nodeName := fmt.Sprintf("name of %s", TestInstanceID)
 
 	testCases := []struct {
 		name   string
@@ -168,7 +168,7 @@ func TestGetNodeById(t *testing.T) {
 		expect expect
 	}{
 		{
-			id:   TEST_INSTANCEID,
+			id:   TestInstanceID,
 			name: "ACM.GetNodeById() - Instance Exists",
 			acm: AWSClusterManager{
 				Ec2Client:          MockEc2ClientGetNodeByIdInstExists{},
@@ -178,7 +178,7 @@ func TestGetNodeById(t *testing.T) {
 			expect: expect{
 				manager.NodeInfo{
 					Name:         nodeName,
-					ID:           TEST_INSTANCEID,
+					ID:           TestInstanceID,
 					InstanceType: "t3.medium",
 				},
 				AWSClusterManager{
@@ -186,14 +186,14 @@ func TestGetNodeById(t *testing.T) {
 					FetchedNodesByName: map[string]manager.NodeInfo{
 						nodeName: {
 							Name:         nodeName,
-							ID:           TEST_INSTANCEID,
+							ID:           TestInstanceID,
 							InstanceType: "t3.medium",
 						},
 					},
 					FetchedNodesById: map[string]manager.NodeInfo{
-						TEST_INSTANCEID: {
+						TestInstanceID: {
 							Name:         nodeName,
-							ID:           TEST_INSTANCEID,
+							ID:           TestInstanceID,
 							InstanceType: "t3.medium",
 						},
 					},
@@ -254,7 +254,7 @@ func TestGetNodes(t *testing.T) {
 	}{
 		{
 			name:        "ACM.GetNodes()",
-			clusterName: TEST_CLUSTER_TAG_VALUE,
+			clusterName: TestClusterTagValue,
 			acm: AWSClusterManager{
 				Ec2Client: MockEc2ClientGetNodes{},
 			},
@@ -264,18 +264,18 @@ func TestGetNodes(t *testing.T) {
 			expect: expect{
 				[]manager.NodeInfo{
 					{
-						Name:         fmt.Sprintf("%s-a-node-name", TEST_CLUSTER_TAG_VALUE),
-						ID:           fmt.Sprintf("i-%s-a-node-name", TEST_CLUSTER_TAG_VALUE),
+						Name:         fmt.Sprintf("%s-a-node-name", TestClusterTagValue),
+						ID:           fmt.Sprintf("i-%s-a-node-name", TestClusterTagValue),
 						InstanceType: "t3.medium",
 					},
 					{
-						Name:         fmt.Sprintf("%s-b-node-name", TEST_CLUSTER_TAG_VALUE),
-						ID:           fmt.Sprintf("i-%s-b-node-name", TEST_CLUSTER_TAG_VALUE),
+						Name:         fmt.Sprintf("%s-b-node-name", TestClusterTagValue),
+						ID:           fmt.Sprintf("i-%s-b-node-name", TestClusterTagValue),
 						InstanceType: "t3.medium",
 					},
 					{
-						Name:         fmt.Sprintf("%s-z-node-name", TEST_CLUSTER_TAG_VALUE),
-						ID:           fmt.Sprintf("i-%s-z-node-name", TEST_CLUSTER_TAG_VALUE),
+						Name:         fmt.Sprintf("%s-z-node-name", TestClusterTagValue),
+						ID:           fmt.Sprintf("i-%s-z-node-name", TestClusterTagValue),
 						InstanceType: "t3.medium",
 					},
 				},
@@ -320,7 +320,7 @@ func TestGetSecurityGroupsForCluster(t *testing.T) {
 		{
 			name: "ACM.GetSecurityGroupsForCluster() - One Security Group",
 			acm: AWSClusterManager{
-				Name:      TEST_EC2_SG_TAG_VALUE,
+				Name:      TestEC2SGTagValue,
 				Ec2Client: MockEc2ClientOneSecurityGroup{},
 			},
 			expect: expect{
@@ -328,8 +328,8 @@ func TestGetSecurityGroupsForCluster(t *testing.T) {
 					{
 						Tags: []types.Tag{
 							{
-								Key:   aws.String(TEST_EC2_SG_TAG),
-								Value: aws.String(TEST_EC2_SG_TAG_VALUE),
+								Key:   aws.String(TestEC2SGTag),
+								Value: aws.String(TestEC2SGTagValue),
 							},
 						},
 					},
@@ -339,7 +339,7 @@ func TestGetSecurityGroupsForCluster(t *testing.T) {
 		{
 			name: "ACM.GetSecurityGroupsForCluster() - No Security Groups",
 			acm: AWSClusterManager{
-				Name:      fmt.Sprintf("not %s", TEST_EC2_SG_TAG_VALUE),
+				Name:      fmt.Sprintf("not %s", TestEC2SGTagValue),
 				Ec2Client: MockEc2ClientNoSecurityGroups{},
 			},
 			expect: expect{
@@ -377,7 +377,7 @@ func TestGetNodeSecurityGroupsForCluster(t *testing.T) {
 		{
 			name: "ACM.GetNodeSecurityGroupsForCluster() - One Security Group",
 			acm: AWSClusterManager{
-				Name:      TEST_EC2_SG_TAG_VALUE,
+				Name:      TestEC2SGTagValue,
 				Ec2Client: MockEc2ClientOneNodeSecurityGroup{},
 			},
 			expect: expect{
@@ -385,13 +385,13 @@ func TestGetNodeSecurityGroupsForCluster(t *testing.T) {
 					{
 						Tags: []types.Tag{
 							{
-								Key:   aws.String(TEST_EC2_SG_TAG),
-								Value: aws.String(TEST_EC2_SG_TAG_VALUE),
+								Key:   aws.String(TestEC2SGTag),
+								Value: aws.String(TestEC2SGTagValue),
 							},
 						},
 						IpPermissions: []types.IpPermission{
 							{
-								ToPort: aws.Int32(TALOS_CONTROL_PORT),
+								ToPort: aws.Int32(TalosControlPort),
 							},
 						},
 					},
@@ -401,7 +401,7 @@ func TestGetNodeSecurityGroupsForCluster(t *testing.T) {
 		{
 			name: "ACM.GetNodeSecurityGroupsForCluster() - Cluster Security Group but No Node Security Groups",
 			acm: AWSClusterManager{
-				Name:      TEST_EC2_SG_TAG_VALUE,
+				Name:      TestEC2SGTagValue,
 				Ec2Client: MockEc2ClientNoNodeSecurityGroup{},
 			},
 			expect: expect{

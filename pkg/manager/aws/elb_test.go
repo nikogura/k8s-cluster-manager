@@ -78,14 +78,14 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 			// test case
 			name: "ACM.GetClusterLBs() - One Cluster LB",
 			acm: AWSClusterManager{
-				Name:      TEST_CLUSTER_TAG_VALUE,
+				Name:      TestClusterTagValue,
 				ELBClient: MockELBClient{},
 			},
 			// expected results from test case
 			expect: []manager.LBInfo{
 				{
-					Name:        TEST_LOAD_BALANCER_NAME,
-					IsApiServer: false,
+					Name:        TestLoadBalancerNameValue,
+					IsAPIServer: false,
 					//TODO: add mock target info to test case when enabling acm.GetTargets()
 					Targets: []manager.LBTargetInfo{
 						//	{
@@ -95,9 +95,9 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 					},
 					TargetGroups: []manager.LBTargetGroupInfo{
 						{
-							Name: TEST_TARGET_GROUP_NAME,
-							Arn:  TEST_TARGET_GROUP_ARN,
-							Port: TEST_TARGET_GROUP_PORT,
+							Name: TestTargetGroupNameValue,
+							Arn:  TestTargetGroupArnValue,
+							Port: TestTargetGroupPortValue,
 						},
 					},
 				},
@@ -107,7 +107,7 @@ func TestAWSClusterManager_GetClusterLBs(t *testing.T) {
 			//TODO: debug shows the test case is "len 0", but real function returns nil
 			name: "ACM.GetClusterLBs() - No Cluster LBs",
 			acm: AWSClusterManager{
-				Name:      TEST_ELB_CLUSTER_TAG_VALUE,
+				Name:      TestELBClusterTagValue,
 				ELBClient: MockELBClientNoLB{},
 			},
 			// expected results from test case

@@ -11,11 +11,11 @@ import (
 	"strings"
 )
 
-const CLOUDFLARE_ZONE_ID_ENV_VAR = "CLOUDFLARE_ZONE_ID"
-const CLOUDFLARE_API_TOKEN_ENV_VAR = "CLOUDFLARE_API_TOKEN"
+const CloudflareZoneIDEnvVar = "CLOUDFLARE_ZONE_ID"
+const CloudflareAPITokenEnvVar = "CLOUDFLARE_API_TOKEN"
 
-// VaultApiConfig creates a vault api config in a standard fashion
-func VaultApiConfig(address string) (config *api.Config, err error) {
+// VaultAPIConfig creates a vault api config in a standard fashion.
+func VaultAPIConfig(address string) (config *api.Config, err error) {
 	// read the environment and use that over anything
 	config = api.DefaultConfig()
 
@@ -31,9 +31,9 @@ func VaultApiConfig(address string) (config *api.Config, err error) {
 		}
 	}
 
-	rootCAs, err := x509.SystemCertPool()
-	if err != nil {
-		err = errors.Wrapf(err, "failed to get system cert pool")
+	rootCAs, rootCAsErr := x509.SystemCertPool()
+	if rootCAsErr != nil {
+		err = errors.Wrapf(rootCAsErr, "failed to get system cert pool")
 		return config, err
 	}
 
@@ -56,7 +56,11 @@ func VaultApiConfig(address string) (config *api.Config, err error) {
 }
 
 func NewVaultClient(token string, verbose bool) (client *api.Client, err error) {
-	apiConfig, err := VaultApiConfig(os.Getenv("VAULT_ADDR"))
+	apiConfig, apiConfigErr := VaultAPIConfig(os.Getenv("VAULT_ADDR"))
+	if apiConfigErr != nil {
+		err = apiConfigErr
+		return client, err
+	}
 
 	if verbose {
 		fmt.Printf("Vault Address: %s\n", apiConfig.Address)
@@ -78,15 +82,15 @@ func SecretData(client *api.Client, path string, verbose bool) (data map[string]
 
 	VerboseOutput(verbose, "Reading path: %s", path)
 
-	v2Path, err := V2Path(path)
-	if err != nil {
-		err = errors.Wrapf(err, "failed creating v2 secret path from %q", path)
+	v2Path, v2PathErr := V2Path(path)
+	if v2PathErr != nil {
+		err = errors.Wrapf(v2PathErr, "failed creating v2 secret path from %q", path)
 		return data, err
 	}
 
-	s, err := client.Logical().Read(v2Path)
-	if err != nil {
-		err = errors.Wrapf(err, "Failed to lookup path: %s", path)
+	s, readErr := client.Logical().Read(v2Path)
+	if readErr != nil {
+		err = errors.Wrapf(readErr, "Failed to lookup path: %s", path)
 		return data, err
 	}
 
@@ -125,7 +129,7 @@ type ConfigData struct {
 	TalosMachineConfig      []byte
 	TalosMachineConfigPatch []byte
 	NodeConfig              []byte
-	CloudflareApiToken      string
+	CloudflareAPIToken      string
 	CloudflareZoneID        string
 }
 
@@ -135,9 +139,9 @@ func ConfigsFromSecret(client *api.Client, mount string, clusterName string, nod
 		fmt.Printf("Loading machine config from %s\n", secretPath)
 	}
 
-	secretData, err := SecretData(client, secretPath, verbose)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting secret from path %s", secretPath)
+	secretData, secretErr := SecretData(client, secretPath, verbose)
+	if secretErr != nil {
+		err = errors.Wrapf(secretErr, "failed getting secret from path %s", secretPath)
 		return data, err
 	}
 
@@ -167,14 +171,14 @@ func ConfigsFromSecret(client *api.Client, mount string, clusterName string, nod
 
 	data.NodeConfig = []byte(n)
 
-	zoneIDFromSecret, ok := secretData[CLOUDFLARE_ZONE_ID_ENV_VAR].(string)
+	zoneIDFromSecret, ok := secretData[CloudflareZoneIDEnvVar].(string)
 	if ok {
 		data.CloudflareZoneID = zoneIDFromSecret
 	}
 
-	cfTokenFromSecret, ok := secretData[CLOUDFLARE_API_TOKEN_ENV_VAR].(string)
+	cfTokenFromSecret, ok := secretData[CloudflareAPITokenEnvVar].(string)
 	if ok {
-		data.CloudflareApiToken = cfTokenFromSecret
+		data.CloudflareAPIToken = cfTokenFromSecret
 	}
 
 	return data, err

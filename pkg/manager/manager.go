@@ -7,10 +7,12 @@ import (
 	"time"
 )
 
-const NODE_ROLE_CP = "controlplane"
-const NODE_ROLE_WORKER = "worker"
+const NodeRoleCp = "controlplane"
+const NodeRoleWorker = "worker"
 
 /*
+K8sClusterManager provides cluster management operations.
+
 Needs:
 CRUD of EC2 instance
 CRUD of talos machine config
@@ -73,7 +75,7 @@ type NodeInfo struct {
 
 type LBInfo struct {
 	Name         string
-	IsApiServer  bool
+	IsAPIServer  bool
 	Targets      []LBTargetInfo
 	TargetGroups []LBTargetGroupInfo
 }
@@ -139,30 +141,30 @@ type ClusterNode interface {
 	Domain() (domain string) // Domain of the node
 }
 
-func DialWithRetry(ctx context.Context, network, address string, maxRetries int, delay time.Duration, verbose bool) (net.Conn, error) {
-	var conn net.Conn
-	var err error
+func DialWithRetry(ctx context.Context, network, address string, maxRetries int, delay time.Duration, verbose bool) (conn net.Conn, err error) {
 	for i := 0; i <= maxRetries; i++ {
-		conn, err = net.DialTimeout(network, address, delay)
+		conn, err = (&net.Dialer{Timeout: delay}).DialContext(ctx, network, address)
 		if err == nil {
-			return conn, nil
+			return conn, err //nolint:nilerr // err is nil here, which is correct for success
 		}
 		if i < maxRetries {
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				err = ctx.Err()
+				return conn, err
 			case <-time.After(delay):
 				VerboseOutput(verbose, "Connection attempt %d failed: %v.  Retrying.\n", i+1, err)
 				continue
 			}
 		} else {
-			return nil, fmt.Errorf("failed to dial after %d retries: %w", maxRetries+1, err)
+			err = fmt.Errorf("failed to dial after %d retries: %w", maxRetries+1, err)
+			return conn, err
 		}
 	}
-	return nil, err
+	return conn, err
 }
 
-func VerboseOutput(verbose bool, message string, args ...interface{}) {
+func VerboseOutput(verbose bool, message string, args ...any) {
 	if verbose {
 		if len(args) == 0 {
 			fmt.Printf("%s\n", message)

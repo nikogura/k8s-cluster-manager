@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+//nolint:gochecknoglobals // Test globals
 var tmpDir string
 
 func TestMain(m *testing.M) {
@@ -23,9 +24,9 @@ func TestMain(m *testing.M) {
 }
 
 func setUp() (err error) {
-	dir, err := os.MkdirTemp("", "k8s-cluster-manager")
-	if err != nil {
-		err = errors.Wrapf(err, "Error creating temp dir %q", tmpDir)
+	dir, mkdirErr := os.MkdirTemp("", "k8s-cluster-manager")
+	if mkdirErr != nil {
+		err = errors.Wrapf(mkdirErr, "Error creating temp dir %q", tmpDir)
 		return err
 	}
 	tmpDir = dir

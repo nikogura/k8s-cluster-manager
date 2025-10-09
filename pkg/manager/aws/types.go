@@ -26,40 +26,46 @@ type AWSNode struct {
 	NodeDomain string         `yaml:"Domain"`
 }
 
-func (n AWSNode) Name() (nodeName string) {
-	return n.NodeName
+func (n AWSNode) Name() (result string) {
+	result = n.NodeName
+	return result
 }
 
-func (n AWSNode) Role() (role string) {
-	return n.NodeRole
+func (n AWSNode) Role() (result string) {
+	result = n.NodeRole
+	return result
 }
 
-func (n AWSNode) IP() (ip string) {
-	return n.IPAddress
+func (n AWSNode) IP() (result string) {
+	result = n.IPAddress
+	return result
 }
 
-func (n AWSNode) ID() (id string) {
-	return n.NodeID
+func (n AWSNode) ID() (result string) {
+	result = n.NodeID
+	return result
 }
 
-func (n AWSNode) Domain() (domain string) {
-	return n.NodeDomain
+func (n AWSNode) Domain() (result string) {
+	result = n.NodeDomain
+	return result
 }
 
 func LoadAWSNodeConfigFromFile(filePath string) (config AWSNodeConfig, err error) {
-	configBytes, err := os.ReadFile(filePath)
-	if err != nil {
-		err = errors.Wrapf(err, "failed reading file %s", filePath)
+	configBytes, readErr := os.ReadFile(filePath)
+	if readErr != nil {
+		err = errors.Wrapf(readErr, "failed reading file %s", filePath)
 		return config, err
 	}
 
-	return LoadAWSNodeConfig(configBytes)
+	config, err = LoadAWSNodeConfig(configBytes)
+	return config, err
 }
 
 func LoadAWSNodeConfig(data []byte) (config AWSNodeConfig, err error) {
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		err = errors.Wrapf(err, "failed unmarshalling data into struct")
+	unmarshalErr := yaml.Unmarshal(data, &config)
+	if unmarshalErr != nil {
+		err = errors.Wrapf(unmarshalErr, "failed unmarshalling data into struct")
 		return config, err
 	}
 

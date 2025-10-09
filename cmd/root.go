@@ -9,15 +9,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:gochecknoglobals // Cobra boilerplate
 var clusterName string
+
+//nolint:gochecknoglobals // Cobra boilerplate
 var cloudProvider string
+
+//nolint:gochecknoglobals // Cobra boilerplate
 var nodeConfigFile string
+
+//nolint:gochecknoglobals // Cobra boilerplate
 var machineConfigFile string
+
+//nolint:gochecknoglobals // Cobra boilerplate
 var machineConfigPatch string
+
+//nolint:gochecknoglobals // Cobra boilerplate
 var verbose bool
+
+//nolint:gochecknoglobals // Cobra boilerplate
 var secretPath string
 
-// rootCmd represents the base command when called without any subcommands
+const cloudProviderAWS = "aws"
+
+// rootCmd represents the base command when called without any subcommands.
+//
+//nolint:gochecknoglobals // Cobra boilerplate
 var rootCmd = &cobra.Command{
 	Use:   "k8s-cluster-manager",
 	Short: "Manage Nik-style k8s clusters",
@@ -37,9 +54,10 @@ func Execute() {
 	}
 }
 
+//nolint:gochecknoinits // Cobra boilerplate
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&clusterName, "clustername", "c", "", "Cluster Name")
-	rootCmd.PersistentFlags().StringVarP(&cloudProvider, "cloudprovider", "p", "aws", "Cloud provider")
+	rootCmd.PersistentFlags().StringVarP(&cloudProvider, "cloudprovider", "p", cloudProviderAWS, "Cloud provider")
 	rootCmd.PersistentFlags().StringVarP(&nodeConfigFile, "nodeconfig", "", "", "Path to node config file")
 	rootCmd.PersistentFlags().StringVarP(&machineConfigFile, "machineconfig", "", "", "Path to talos machine config file")
 	rootCmd.PersistentFlags().StringVarP(&machineConfigPatch, "machineconfigpatch", "", "", "Path to talos machine config patch file")

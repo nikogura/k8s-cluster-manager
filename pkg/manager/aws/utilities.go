@@ -7,10 +7,11 @@ import (
 	"strings"
 )
 
-func prettyPrint[T any](str T) string {
+func prettyPrint[T any](str T) (pretty string) {
 	s := reflect.ValueOf(&str).Elem()
 	typeOf := s.Type()
-	pretty := ""
+	pretty = ""
+	//nolint:intrange // Go 1.22+ feature, maintaining compatibility with earlier versions
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 		pretty = strings.Join([]string{pretty, fmt.Sprintf("%d: %s %s = %v\n", i,
@@ -20,8 +21,8 @@ func prettyPrint[T any](str T) string {
 	return pretty
 }
 
-func prettyPrintMap[T map[string]manager.NodeInfo](str T) string {
-	pretty := ""
+func prettyPrintMap[T map[string]manager.NodeInfo](str T) (pretty string) {
+	pretty = ""
 	i := 0
 	for k, v := range str {
 		pretty = strings.Join([]string{pretty, fmt.Sprintf("%d: %s =\n-\n | values for key %d:\n%s\n", i,

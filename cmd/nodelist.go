@@ -15,7 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// nodelistCmd represents the nodelist command
+// nodelistCmd represents the nodelist command.
+//
+//nolint:gochecknoglobals // Cobra boilerplate
 var nodelistCmd = &cobra.Command{
 	Use:   "list <cluster name>",
 	Short: "List Nodes in a cluster",
@@ -41,20 +43,20 @@ List nodes in a cluster.
 		}
 
 		switch cloudProvider {
-		case "aws":
+		case cloudProviderAWS:
 			profile := os.Getenv("AWS_PROFILE")
 			role := os.Getenv("AWS_ROLE")
 			dnsManager := cloudflare.NewCloudFlareManager(cfZoneID, cfToken)
-			cm, err := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
-			if err != nil {
-				log.Fatalf("Failed creating cluster manager: %s", err)
+			cm, cmErr := aws.NewAWSClusterManager(ctx, clusterName, profile, role, dnsManager, verbose)
+			if cmErr != nil {
+				log.Fatalf("Failed creating cluster manager: %s", cmErr)
 			}
 
 			// Get the nodes for the cluster
-			nodes, err := cm.GetNodes(clusterName)
-			if err != nil {
-				err = errors.Wrapf(err, "failed getting cluster nodes")
-				log.Fatalf("failed listing nodes for cluster %s: %s", clusterName, err)
+			nodes, nodesErr := cm.GetNodes(clusterName)
+			if nodesErr != nil {
+				nodesErr = errors.Wrapf(nodesErr, "failed getting cluster nodes")
+				log.Fatalf("failed listing nodes for cluster %s: %s", clusterName, nodesErr)
 			}
 
 			fmt.Printf("Nodes: (%d)\n", len(nodes))
@@ -68,6 +70,7 @@ List nodes in a cluster.
 	},
 }
 
+//nolint:gochecknoinits // Cobra boilerplate
 func init() {
 	nodeCmd.AddCommand(nodelistCmd)
 

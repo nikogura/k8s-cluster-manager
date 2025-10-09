@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const TALOS_CONTROL_PORT = 50000
+const TalosControlPort = 50000
 
 func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig, machineConfigBytes []byte, machineConfigPatches []string) (err error) {
 	// Create Instance
@@ -30,7 +30,51 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		NodeDomain: config.Domain,
 	}
 
-	// Set up the "Name" Tag.
+	// Launch EC2 instance
+	output, runErr := am.launchEC2Instance(nodeName, config)
+	if runErr != nil {
+		err = errors.Wrapf(runErr, "failed launching instance %s", nodeName)
+		return err
+	}
+
+	// Set IP on node struct
+	node.IPAddress = *output.Instances[0].PrivateIpAddress
+	node.NodeID = *output.Instances[0].InstanceId
+
+	// Wait for node to be ready
+	waitErr := am.waitForNodeReady(&node)
+	if waitErr != nil {
+		err = errors.Wrapf(waitErr, "failed waiting for node %s", nodeName)
+		return err
+	}
+
+	// Apply Talos machine config
+	applyErr := talos.ApplyConfig(am.Context, &node, machineConfigBytes, machineConfigPatches, true, am.GetVerbose())
+	if applyErr != nil {
+		err = errors.Wrapf(applyErr, "failed applying machine config to %s", nodeName)
+		return err
+	}
+
+	// Register Node with Load Balancers
+	regErr := am.RegisterNode(node)
+	if regErr != nil {
+		err = errors.Wrapf(regErr, "failed registering %s", nodeName)
+		return err
+	}
+
+	// Register Node with DNS
+	dnsErr := am.DnsManager.RegisterNode(am.Context, node, am.GetVerbose())
+	if dnsErr != nil {
+		err = errors.Wrapf(dnsErr, "failed registering dns for %s", nodeName)
+		return err
+	}
+
+	fmt.Printf("Node %s (%s) Successfully Created and Registered\n", node.Name(), node.NodeID)
+
+	return err
+}
+
+func (am *AWSClusterManager) launchEC2Instance(nodeName string, config AWSNodeConfig) (output *ec2.RunInstancesOutput, err error) {
 	tags := []types.TagSpecification{
 		{
 			ResourceType: types.ResourceTypeInstance,
@@ -43,10 +87,10 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		},
 	}
 
-	blockSize, err := strconv.Atoi(config.BlockDeviceGb)
-	if err != nil {
-		err = errors.Wrapf(err, "failed converting %s to integer", config.BlockDeviceGb)
-		return err
+	blockSize, convErr := strconv.Atoi(config.BlockDeviceGb)
+	if convErr != nil {
+		err = errors.Wrapf(convErr, "failed converting %s to integer", config.BlockDeviceGb)
+		return output, err
 	}
 
 	blockDeviceMappings := []types.BlockDeviceMapping{
@@ -55,27 +99,19 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 			Ebs: &types.EbsBlockDevice{
 				DeleteOnTermination: aws.Bool(true),
 				Encrypted:           aws.Bool(true),
-				//Iops:                nil,
-				//KmsKeyId:            nil,
-				//OutpostArn:          nil,
-				//SnapshotId:          nil,
-				//Throughput:          nil,
-				VolumeSize: aws.Int32(int32(blockSize)),
-				VolumeType: types.VolumeType(config.BlockDeviceType),
+				VolumeSize:          aws.Int32(int32(blockSize)),
+				VolumeType:          types.VolumeType(config.BlockDeviceType),
 			},
-			NoDevice:    nil,
-			VirtualName: nil,
 		},
 	}
 
-	securityGroups, err := am.GetNodeSecurityGroupsForCluster()
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting security groups")
-		return err
+	securityGroups, sgErr := am.GetNodeSecurityGroupsForCluster()
+	if sgErr != nil {
+		err = errors.Wrapf(sgErr, "failed getting security groups")
+		return output, err
 	}
 
 	sgIDs := make([]string, 0)
-
 	for _, g := range securityGroups {
 		sgIDs = append(sgIDs, *g.GroupId)
 	}
@@ -97,55 +133,27 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 		}
 	}
 
-	output, err := am.Ec2Client.RunInstances(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed running instance %s", nodeName)
-		return err
-	}
+	output, err = am.Ec2Client.RunInstances(am.Context, input)
+	return output, err
+}
 
-	// Set IP on node struct
-	node.IPAddress = *output.Instances[0].PrivateIpAddress
-	node.NodeID = *output.Instances[0].InstanceId
-
+func (am *AWSClusterManager) waitForNodeReady(node *AWSNode) (err error) {
 	fullAddr := fmt.Sprintf("%s:50000", node.IP())
-
 	manager.VerboseOutput(am.GetVerbose(), "Waiting for node %s to become ready (This will take several tries.)\n", fullAddr)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	conn, err := manager.DialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second, am.GetVerbose())
-	if err != nil {
-		err = errors.Wrapf(err, "failed dialing %s", fullAddr)
+	conn, dialErr := manager.DialWithRetry(ctx, "tcp", fullAddr, 150, 2*time.Second, am.GetVerbose())
+	if dialErr != nil {
+		err = errors.Wrapf(dialErr, "failed dialing %s", fullAddr)
 		return err
 	}
-	if err := conn.Close(); err != nil {
-		err = errors.Wrapf(err, "failed closing connection to %s", fullAddr)
+	closeErr := conn.Close()
+	if closeErr != nil {
+		err = errors.Wrapf(closeErr, "failed closing connection to %s", fullAddr)
 		return err
 	}
-
-	// Apply Talos machine config
-	err = talos.ApplyConfig(am.Context, &node, machineConfigBytes, machineConfigPatches, true, am.GetVerbose())
-	if err != nil {
-		err = errors.Wrapf(err, "failed applying machine config to %s", nodeName)
-		return err
-	}
-
-	// Register Node with Load Balancers
-	err = am.RegisterNode(node)
-	if err != nil {
-		err = errors.Wrapf(err, "failed registering %s", nodeName)
-		return err
-	}
-
-	// Register Node with DNS
-	err = am.DnsManager.RegisterNode(am.Context, node, am.GetVerbose())
-	if err != nil {
-		err = errors.Wrapf(err, "failed registering dns for %s", nodeName)
-		return err
-	}
-
-	fmt.Printf("Node %s (%s) Successfully Created and Registered\n", node.Name(), node.NodeID)
 
 	return err
 }
@@ -153,21 +161,21 @@ func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config
 func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	// Get Node info
 	manager.VerboseOutput(am.GetVerbose(), "Getting node info\n")
-	nodeInfo, err := am.GetNode(nodeName)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting node %s", nodeName)
+	nodeInfo, getErr := am.GetNode(nodeName)
+	if getErr != nil {
+		err = errors.Wrapf(getErr, "failed getting node %s", nodeName)
 		return err
 	}
 
-	err = am.DnsManager.DeregisterNode(am.Context, nodeName, am.GetVerbose())
-	if err != nil {
-		err = errors.Wrapf(err, "failed deregistering dns for %s", nodeName)
+	dnsDeregErr := am.DnsManager.DeregisterNode(am.Context, nodeName, am.GetVerbose())
+	if dnsDeregErr != nil {
+		err = errors.Wrapf(dnsDeregErr, "failed deregistering dns for %s", nodeName)
 		return err
 	}
 
-	err = am.DeRegisterNode(nodeName, nodeInfo.ID)
-	if err != nil {
-		err = errors.Wrapf(err, "failed deregistering node %s", nodeName)
+	deregErr := am.DeRegisterNode(nodeName, nodeInfo.ID)
+	if deregErr != nil {
+		err = errors.Wrapf(deregErr, "failed deregistering node %s", nodeName)
 		return err
 	}
 
@@ -178,15 +186,15 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	}
 
 	// Terminate Instances
-	_, err = am.Ec2Client.TerminateInstances(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed removing node %s (%s) from aws", nodeName, nodeInfo.ID)
+	_, termErr := am.Ec2Client.TerminateInstances(am.Context, input)
+	if termErr != nil {
+		err = errors.Wrapf(termErr, "failed removing node %s (%s) from aws", nodeName, nodeInfo.ID)
 		return err
 	}
 
-	err = kubernetes.DeleteNode(am.Context, nodeName, am.GetVerbose())
-	if err != nil {
-		err = errors.Wrapf(err, "failed deleting node %s from k8s", nodeName)
+	k8sDelErr := kubernetes.DeleteNode(am.Context, nodeName, am.GetVerbose())
+	if k8sDelErr != nil {
+		err = errors.Wrapf(k8sDelErr, "failed deleting node %s from k8s", nodeName)
 	}
 
 	fmt.Printf("Node %s (%s) Terminated\n", nodeName, nodeInfo.ID)
@@ -194,7 +202,7 @@ func (am *AWSClusterManager) DeleteNode(nodeName string) (err error) {
 	return err
 }
 
-// GetNode gets the Id (instance Id) of the node specified by the Name tag
+// GetNode gets the Id (instance Id) of the node specified by the Name tag.
 func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo, err error) {
 	filter := types.Filter{
 		Name:   aws.String("tag:Name"),
@@ -209,9 +217,9 @@ func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo
 		NextToken:   nil,
 	}
 
-	output, err := am.Ec2Client.DescribeInstances(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting node %s", nodeName)
+	output, descErr := am.Ec2Client.DescribeInstances(am.Context, input)
+	if descErr != nil {
+		err = errors.Wrapf(descErr, "failed getting node %s", nodeName)
 	}
 
 	// There could be any number of instances out there with the same Name tag.  We're only interested in the one that's 'running'.
@@ -255,21 +263,23 @@ func (am *AWSClusterManager) GetNode(nodeName string) (nodeInfo manager.NodeInfo
 	return nodeInfo, err
 }
 
-// GetNodeById gets the Name (tag) of the node specified by Id (instance ID)
+// GetNodeById gets the Name (tag) of the node specified by Id (instance ID).
+//
+//nolint:staticcheck // Changing to GetNodeByID would break API
 func (am *AWSClusterManager) GetNodeById(id string) (nodeInfo manager.NodeInfo, err error) {
 
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []string{id},
 	}
 
-	output, err := am.Ec2Client.DescribeInstances(am.Context, input)
+	output, descErr := am.Ec2Client.DescribeInstances(am.Context, input)
 	// "If you specify an instance ID that is not valid, an error is returned.
 	// If you specify an instance that you do not own, it is not included in the output."
 	// TODO: validate the output of an unowned but existing instance with an acceptance test
 	//  Assuming for that case that the result is a zero-length output.Reservations,
 	//  not a zero-length output.Reservations[0].Instances
 	// Note: converting an error from AWS to a Warn level log in order to present a consistent output for unit testing
-	if err != nil {
+	if descErr != nil {
 		logrus.Warnf("id %s does not exist", id)
 	} else if len(output.Reservations) > 0 {
 		// assuming there's only 1 reservation and 1 instance makes me nervous, but that is how I create 'em
@@ -308,9 +318,9 @@ func (am *AWSClusterManager) GetNodes(clusterName string) (nodeInfo []manager.No
 		NextToken:   nil,
 	}
 
-	output, err := am.Ec2Client.DescribeInstances(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting nodes for cluster %s", clusterName)
+	output, descErr := am.Ec2Client.DescribeInstances(am.Context, input)
+	if descErr != nil {
+		err = errors.Wrapf(descErr, "failed getting nodes for cluster %s", clusterName)
 		return nodeInfo, err
 	}
 
@@ -339,11 +349,26 @@ func (am *AWSClusterManager) GetNodes(clusterName string) (nodeInfo []manager.No
 	// TODO get DNS Status?
 
 	// Sort the output alphabetically
-	sort.Slice(nodeInfo, func(i, j int) bool {
-		return nodeInfo[i].Name < nodeInfo[j].Name
-	})
+	nodeInfo = sortNodeInfoByName(nodeInfo)
 
 	return nodeInfo, err
+}
+
+func sortNodeInfoByName(nodes []manager.NodeInfo) (sorted []manager.NodeInfo) {
+	sorted = make([]manager.NodeInfo, len(nodes))
+	copy(sorted, nodes)
+	// Use sort.Slice with type assertion to avoid closure with named returns
+	sort.Slice(sorted, nodeInfoComparator{nodes: sorted}.Less)
+	return sorted
+}
+
+type nodeInfoComparator struct {
+	nodes []manager.NodeInfo
+}
+
+func (c nodeInfoComparator) Less(i, j int) (less bool) {
+	less = c.nodes[i].Name < c.nodes[j].Name
+	return less
 }
 
 func (am *AWSClusterManager) GetSecurityGroupsForCluster() (groups []types.SecurityGroup, err error) {
@@ -363,9 +388,9 @@ func (am *AWSClusterManager) GetSecurityGroupsForCluster() (groups []types.Secur
 		//NextToken:  nil,
 	}
 
-	output, err := am.Ec2Client.DescribeSecurityGroups(am.Context, input)
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting security groups for cluster %s", am.ClusterName())
+	output, descErr := am.Ec2Client.DescribeSecurityGroups(am.Context, input)
+	if descErr != nil {
+		err = errors.Wrapf(descErr, "failed getting security groups for cluster %s", am.ClusterName())
 		return groups, err
 	}
 
@@ -376,16 +401,16 @@ func (am *AWSClusterManager) GetSecurityGroupsForCluster() (groups []types.Secur
 
 func (am *AWSClusterManager) GetNodeSecurityGroupsForCluster() (groups []types.SecurityGroup, err error) {
 
-	allGroups, err := am.GetSecurityGroupsForCluster()
-	if err != nil {
-		err = errors.Wrapf(err, "failed getting security groups for cluster")
+	allGroups, allErr := am.GetSecurityGroupsForCluster()
+	if allErr != nil {
+		err = errors.Wrapf(allErr, "failed getting security groups for cluster")
 		return groups, err
 	}
 
 	for _, g := range allGroups {
 		for _, p := range g.IpPermissions {
 			if p.ToPort != nil {
-				if int(*p.ToPort) == TALOS_CONTROL_PORT {
+				if int(*p.ToPort) == TalosControlPort {
 					groups = append(groups, g)
 				}
 			}

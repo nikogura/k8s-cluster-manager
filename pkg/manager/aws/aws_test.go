@@ -7,11 +7,19 @@ import (
 	"testing"
 )
 
+//nolint:gochecknoglobals,unused // Test globals
 var awsClusterManager *AWSClusterManager
+
+//nolint:gochecknoglobals // Test globals
 var ctx context.Context
 
+//nolint:gochecknoglobals,unused // Test globals
 var awsProfile string
+
+//nolint:gochecknoglobals,unused // Test globals
 var clusterName string
+
+//nolint:gochecknoglobals // Test globals
 var tmpDir string
 
 func TestMain(m *testing.M) {
@@ -37,11 +45,13 @@ func setUp() {
 }
 
 func tearDown() {
-	if _, err := os.Stat(tmpDir); err == nil {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			log.Printf("couldn't remove temp dir: %s", err)
+	_, statErr := os.Stat(tmpDir)
+	if statErr == nil {
+		rmErr := os.RemoveAll(tmpDir)
+		if rmErr != nil {
+			log.Printf("couldn't remove temp dir: %s", rmErr)
 		}
 	} else {
-		log.Printf("couldn't find temp dir: %s", err)
+		log.Printf("couldn't find temp dir: %s", statErr)
 	}
 }
