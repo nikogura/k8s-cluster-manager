@@ -79,6 +79,9 @@ jobs:
     - name: Install Named returns
       run: go install github.com/nikogura/namedreturns@latest
 
+    - name: Install golangci-lint
+      run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
     - name: Lint Checks
       run: make lint
 
