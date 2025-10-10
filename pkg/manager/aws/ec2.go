@@ -17,6 +17,8 @@ import (
 )
 
 const TalosControlPort = 50000
+const EC2TagName = "Name"
+const EC2TagCluster = "Cluster"
 
 func (am *AWSClusterManager) CreateNode(nodeName string, nodeRole string, config AWSNodeConfig, machineConfigBytes []byte, machineConfigPatches []string, purpose string) (err error) {
 	// Create Instance
@@ -95,8 +97,12 @@ func (am *AWSClusterManager) launchEC2Instance(nodeName string, config AWSNodeCo
 			ResourceType: types.ResourceTypeInstance,
 			Tags: []types.Tag{
 				{
-					Key:   aws.String("Name"),
+					Key:   aws.String(EC2TagName),
 					Value: aws.String(nodeName),
+				},
+				{
+					Key:   aws.String(EC2TagCluster),
+					Value: aws.String(am.ClusterName()),
 				},
 			},
 		},
@@ -299,7 +305,7 @@ func (am *AWSClusterManager) GetNodeById(id string) (nodeInfo manager.NodeInfo, 
 	} else if len(output.Reservations) > 0 {
 		// assuming there's only 1 reservation and 1 instance makes me nervous, but that is how I create 'em
 		for _, tag := range output.Reservations[0].Instances[0].Tags {
-			if *tag.Key == "Name" {
+			if *tag.Key == EC2TagName {
 				nodeInfo.Name = *tag.Value
 			}
 		}
@@ -321,8 +327,8 @@ func (am *AWSClusterManager) GetNodes(clusterName string) (nodeInfo []manager.No
 	nodeInfo = make([]manager.NodeInfo, 0)
 
 	filter := types.Filter{
-		Name:   aws.String("tag:Name"),
-		Values: []string{fmt.Sprintf("%s-*", clusterName)},
+		Name:   aws.String("tag:Cluster"),
+		Values: []string{clusterName},
 	}
 
 	input := &ec2.DescribeInstancesInput{
@@ -346,7 +352,7 @@ func (am *AWSClusterManager) GetNodes(clusterName string) (nodeInfo []manager.No
 		var name string
 		tags := instance.Tags
 		for _, t := range tags {
-			if *t.Key == "Name" {
+			if *t.Key == EC2TagName {
 				name = *t.Value
 			}
 		}
@@ -447,4 +453,108 @@ func (am *AWSClusterManager) DescribeNode(nodeName string) (info manager.NodeInf
 	// May be unnecessary?
 
 	return info, err
+}
+
+// GetNodesInSecurityGroup returns all running instances in the cluster's security groups.
+// This helps find instances that might be missing the Cluster tag.
+//
+//nolint:gocognit // Reconciliation logic requires multiple checks
+func (am *AWSClusterManager) GetNodesInSecurityGroup() (nodeInfo []manager.NodeInfo, err error) {
+	nodeInfo = make([]manager.NodeInfo, 0)
+
+	securityGroups, sgErr := am.GetNodeSecurityGroupsForCluster()
+	if sgErr != nil {
+		err = errors.Wrapf(sgErr, "failed getting security groups for cluster")
+		return nodeInfo, err
+	}
+
+	if len(securityGroups) == 0 {
+		return nodeInfo, err
+	}
+
+	sgIDs := make([]string, 0)
+	for _, g := range securityGroups {
+		sgIDs = append(sgIDs, *g.GroupId)
+	}
+
+	// Build filters for instances in these security groups
+	filters := make([]types.Filter, 0)
+	filters = append(filters, types.Filter{
+		Name:   aws.String("instance-state-name"),
+		Values: []string{"running"},
+	})
+
+	for _, sgID := range sgIDs {
+		filters = append(filters, types.Filter{
+			Name:   aws.String("instance.group-id"),
+			Values: []string{sgID},
+		})
+	}
+
+	input := &ec2.DescribeInstancesInput{
+		Filters: filters,
+	}
+
+	output, descErr := am.Ec2Client.DescribeInstances(am.Context, input)
+	if descErr != nil {
+		err = errors.Wrapf(descErr, "failed describing instances in security groups")
+		return nodeInfo, err
+	}
+
+	for _, reservation := range output.Reservations {
+		for _, instance := range reservation.Instances {
+			var name string
+			var hasClusterTag bool
+			var clusterTagValue string
+
+			for _, tag := range instance.Tags {
+				if *tag.Key == EC2TagName {
+					name = *tag.Value
+				}
+				if *tag.Key == EC2TagCluster {
+					hasClusterTag = true
+					clusterTagValue = *tag.Value
+				}
+			}
+
+			// Only include if missing Cluster tag or tag doesn't match our cluster
+			if !hasClusterTag || clusterTagValue != am.ClusterName() {
+				info := manager.NodeInfo{
+					Name:         name,
+					ID:           *instance.InstanceId,
+					InstanceType: string(instance.InstanceType),
+				}
+				nodeInfo = append(nodeInfo, info)
+			}
+		}
+	}
+
+	return nodeInfo, err
+}
+
+// FixMissingClusterTags adds the Cluster tag to instances that are missing it.
+func (am *AWSClusterManager) FixMissingClusterTags(instanceIDs []string) (err error) {
+	if len(instanceIDs) == 0 {
+		return err
+	}
+
+	tags := []types.Tag{
+		{
+			Key:   aws.String(EC2TagCluster),
+			Value: aws.String(am.ClusterName()),
+		},
+	}
+
+	createTagsInput := &ec2.CreateTagsInput{
+		Resources: instanceIDs,
+		Tags:      tags,
+	}
+
+	_, tagErr := am.Ec2Client.CreateTags(am.Context, createTagsInput)
+	if tagErr != nil {
+		err = errors.Wrapf(tagErr, "failed creating tags for instances")
+		return err
+	}
+
+	return err
 }

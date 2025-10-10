@@ -79,6 +79,30 @@ func isNodeReady(node *corev1.Node) (ready bool) {
 	return ready
 }
 
+// ListNodes returns a list of all node names in Kubernetes.
+func ListNodes(ctx context.Context, verbose bool) (nodeNames []string, err error) {
+	manager.VerboseOutput(verbose, "Listing all nodes from Kubernetes\n")
+
+	client, clientErr := k8s_utility_client.NewK8sClients()
+	if clientErr != nil {
+		err = errors.Wrapf(clientErr, "failed creating k8s clients")
+		return nodeNames, err
+	}
+
+	nodes, listErr := client.ClientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if listErr != nil {
+		err = errors.Wrapf(listErr, "failed listing nodes from kubernetes")
+		return nodeNames, err
+	}
+
+	nodeNames = make([]string, 0, len(nodes.Items))
+	for _, node := range nodes.Items {
+		nodeNames = append(nodeNames, node.Name)
+	}
+
+	return nodeNames, err
+}
+
 // ApplyPurposeLabelsAndTaints applies a purpose label and corresponding taint to a node.
 func ApplyPurposeLabelsAndTaints(ctx context.Context, nodeName string, purposeValue string, verbose bool) (err error) {
 	manager.VerboseOutput(verbose, "Applying purpose label and taint to node %s (purpose: %s)\n", nodeName, purposeValue)
