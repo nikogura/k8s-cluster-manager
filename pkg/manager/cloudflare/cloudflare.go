@@ -39,7 +39,7 @@ func (c CloudFlareManager) RegisterNode(ctx context.Context, node manager.Cluste
 
 	params := dns.RecordNewParams{
 		ZoneID: cloudflare.F(c.zoneID),
-		Record: aRecord,
+		Body:   aRecord,
 	}
 
 	_, err = client.DNS.Records.New(ctx, params)

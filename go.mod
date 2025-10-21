@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.43.2
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.3
 	github.com/aws/smithy-go v1.22.1
-	github.com/cloudflare/cloudflare-go/v4 v4.2.0
+	github.com/cloudflare/cloudflare-go/v4 v4.6.0
 	github.com/hashicorp/vault/api v1.16.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nikogura/k8s-utility-client v0.0.0-20221230161901-13738786a73d
@@ -116,8 +116,8 @@ require (
 	github.com/siderolabs/protoenc v0.2.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
-	github.com/tidwall/gjson v1.14.4 // indirect
-	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/gjson v1.18.0 // indirect
+	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
