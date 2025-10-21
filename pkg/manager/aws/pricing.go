@@ -6,6 +6,68 @@ import (
 	"github.com/pkg/errors"
 )
 
+// InstanceSpecs holds CPU and memory specifications for an instance type.
+type InstanceSpecs struct {
+	VCPUs     int
+	MemoryGiB float64
+}
+
+// getInstanceSpecs returns CPU and memory specifications for AWS instance types.
+func getInstanceSpecs(instanceType string) (specs InstanceSpecs, err error) {
+	specsMap := map[string]InstanceSpecs{
+		// General Purpose (T family)
+		"t3.nano":   {VCPUs: 2, MemoryGiB: 0.5},
+		"t3.micro":  {VCPUs: 2, MemoryGiB: 1},
+		"t3.small":  {VCPUs: 2, MemoryGiB: 2},
+		"t3.medium": {VCPUs: 2, MemoryGiB: 4},
+		"t3.large":  {VCPUs: 2, MemoryGiB: 8},
+		"t3.xlarge": {VCPUs: 4, MemoryGiB: 16},
+
+		// General Purpose (M5 family)
+		"m5.large":   {VCPUs: 2, MemoryGiB: 8},
+		"m5.xlarge":  {VCPUs: 4, MemoryGiB: 16},
+		"m5.2xlarge": {VCPUs: 8, MemoryGiB: 32},
+		"m5.4xlarge": {VCPUs: 16, MemoryGiB: 64},
+		"m5.8xlarge": {VCPUs: 32, MemoryGiB: 128},
+
+		// Compute Optimized (C5 family)
+		"c5.large":   {VCPUs: 2, MemoryGiB: 4},
+		"c5.xlarge":  {VCPUs: 4, MemoryGiB: 8},
+		"c5.2xlarge": {VCPUs: 8, MemoryGiB: 16},
+		"c5.4xlarge": {VCPUs: 16, MemoryGiB: 32},
+		"c5.9xlarge": {VCPUs: 36, MemoryGiB: 72},
+
+		// Memory Optimized (R5 family)
+		"r5.large":   {VCPUs: 2, MemoryGiB: 16},
+		"r5.xlarge":  {VCPUs: 4, MemoryGiB: 32},
+		"r5.2xlarge": {VCPUs: 8, MemoryGiB: 64},
+		"r5.4xlarge": {VCPUs: 16, MemoryGiB: 128},
+		"r5.8xlarge": {VCPUs: 32, MemoryGiB: 256},
+	}
+
+	var exists bool
+	specs, exists = specsMap[instanceType]
+	if !exists {
+		err = fmt.Errorf("no instance specs available for instance type %s", instanceType)
+		return specs, err
+	}
+
+	return specs, err
+}
+
+// GetInstanceSpecs returns CPU and memory specs for an instance type (exported for external use).
+func GetInstanceSpecs(instanceType string) (vcpus int, memoryGiB float64, err error) {
+	specs, specsErr := getInstanceSpecs(instanceType)
+	if specsErr != nil {
+		err = specsErr
+		return vcpus, memoryGiB, err
+	}
+
+	vcpus = specs.VCPUs
+	memoryGiB = specs.MemoryGiB
+	return vcpus, memoryGiB, err
+}
+
 // AWSPricingEstimator provides cost estimation for AWS EC2 instances.
 type AWSPricingEstimator struct {
 	Region        string

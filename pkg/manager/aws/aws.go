@@ -200,6 +200,30 @@ func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.C
 		return info, err
 	}
 
+	// Enrich nodes with resource specs and costs if estimator is available
+	for i := range nodes {
+		if nodes[i].InstanceType == "" {
+			continue
+		}
+
+		// Get instance specs (CPU and memory)
+		vcpus, memoryGiB, specsErr := GetInstanceSpecs(nodes[i].InstanceType)
+		if specsErr == nil {
+			nodes[i].VCPUs = vcpus
+			nodes[i].MemoryGiB = memoryGiB
+			info.TotalVCPUs += vcpus
+			info.TotalMemoryGiB += memoryGiB
+		}
+
+		// Calculate per-node cost if estimator is available
+		if am.CostEstimator != nil {
+			dailyCost, costErr := am.CostEstimator.EstimateDailyCost(nodes[i].InstanceType)
+			if costErr == nil {
+				nodes[i].DailyCost = dailyCost
+			}
+		}
+	}
+
 	info.Nodes = nodes
 
 	// Get the load balancers for the cluster
@@ -211,7 +235,7 @@ func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.C
 
 	info.LoadBalancers = lbs
 
-	// Calculate cost if estimator is available
+	// Calculate total cluster cost if estimator is available
 	if am.CostEstimator != nil {
 		totalCost, costErr := CalculateClusterDailyCost(info.Nodes, am.CostEstimator)
 		if costErr != nil {
