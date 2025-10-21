@@ -31,13 +31,15 @@ func (c CloudFlareManager) RegisterNode(ctx context.Context, node manager.Cluste
 		option.WithAPIToken(c.apiToken),
 	)
 
+	aRecord := dns.ARecordParam{
+		Content: cloudflare.F(node.IP()),
+		Name:    cloudflare.F(fmt.Sprintf("%s.%s", node.Name(), node.Domain())),
+		Type:    cloudflare.F(dns.ARecordTypeA),
+	}
+
 	params := dns.RecordNewParams{
 		ZoneID: cloudflare.F(c.zoneID),
-		Record: dns.ARecordParam{
-			Content: cloudflare.F(node.IP()),
-			Name:    cloudflare.F(fmt.Sprintf("%s.%s", node.Name(), node.Domain())),
-			Type:    cloudflare.F(dns.ARecordTypeA),
-		},
+		Record: aRecord,
 	}
 
 	_, err = client.DNS.Records.New(ctx, params)
