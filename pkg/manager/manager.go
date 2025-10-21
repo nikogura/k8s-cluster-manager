@@ -59,12 +59,21 @@ func (DNSManagerStruct) DeregisterNode(ctx context.Context, nodeName string, ver
 	return err
 }
 
+// CostEstimator provides cost estimation for compute resources.
+type CostEstimator interface {
+	// EstimateHourlyCost returns the estimated cost per hour for the given instance type in USD.
+	EstimateHourlyCost(instanceType string) (costPerHour float64, err error)
+	// EstimateDailyCost returns the estimated cost per day (24 hours) for the given instance type in USD.
+	EstimateDailyCost(instanceType string) (costPerDay float64, err error)
+}
+
 type ClusterInfo struct {
 	Name                       string
 	Provider                   string
 	Nodes                      []NodeInfo
 	LoadBalancers              []LBInfo
-	ScheduleWorkloadsOnCPNodes bool // TODO  How do we keep track of this?
+	ScheduleWorkloadsOnCPNodes bool     // TODO  How do we keep track of this?
+	EstimatedDailyCost         *float64 `json:"estimated_daily_cost,omitempty"` // Optional cost estimate in USD
 }
 
 type NodeInfo struct {

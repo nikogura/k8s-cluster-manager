@@ -70,6 +70,7 @@ type AWSClusterManager struct {
 	FetchedNodesById   map[string]manager.NodeInfo //nolint:staticcheck // Changing to FetchedNodesByID would break API
 	FetchedNodesByName map[string]manager.NodeInfo
 	ClusterNameRegex   *regexp.Regexp
+	CostEstimator      manager.CostEstimator // Optional: if provided, enables cost estimation
 }
 
 func NewAWSClusterManager(ctx context.Context, clusterName string, profile string, role string, dnsManager manager.DNSManager, verbose bool) (am *AWSClusterManager, err error) {
@@ -176,6 +177,11 @@ func (am *AWSClusterManager) GetVerbose() (result bool) {
 	return result
 }
 
+// SetCostEstimator sets the cost estimator for the cluster manager.
+func (am *AWSClusterManager) SetCostEstimator(estimator manager.CostEstimator) {
+	am.CostEstimator = estimator
+}
+
 //
 //func (am *AWSClusterManager) DNSManager() manager.DNSManager {
 //	return am.DnsManager
@@ -204,6 +210,17 @@ func (am *AWSClusterManager) DescribeCluster(clusterName string) (info manager.C
 	}
 
 	info.LoadBalancers = lbs
+
+	// Calculate cost if estimator is available
+	if am.CostEstimator != nil {
+		totalCost, costErr := CalculateClusterDailyCost(info.Nodes, am.CostEstimator)
+		if costErr != nil {
+			// Log warning but don't fail the entire describe operation
+			manager.VerboseOutput(am.Verbose, "Warning: failed to calculate cluster cost: %v", costErr)
+		} else {
+			info.EstimatedDailyCost = &totalCost
+		}
+	}
 
 	return info, err
 }
