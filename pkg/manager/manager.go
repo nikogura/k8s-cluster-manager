@@ -43,6 +43,10 @@ type K8sClusterManager interface {
 	DescribeNode(nodeName string) (info NodeInfo, err error)
 	DescribeCluster(clusterName string) (info ClusterInfo, err error)
 	DNSManager() (manager DNSManager)
+	// UpgradeNode upgrades a single node to the specified version.
+	UpgradeNode(nodeName string, version string, options UpgradeOptions) (result UpgradeResult, err error)
+	// UpgradeCluster orchestrates a rolling upgrade of all cluster nodes.
+	UpgradeCluster(version string, options UpgradeOptions) (result UpgradeResult, err error)
 }
 
 type DNSManager interface {
@@ -65,6 +69,63 @@ type CostEstimator interface {
 	EstimateHourlyCost(instanceType string) (costPerHour float64, err error)
 	// EstimateDailyCost returns the estimated cost per day (24 hours) for the given instance type in USD.
 	EstimateDailyCost(instanceType string) (costPerDay float64, err error)
+}
+
+// UpgradeOptions configures the behavior of node and cluster upgrades.
+type UpgradeOptions struct {
+	ControlPlaneFirst bool          // Upgrade control plane nodes before workers
+	MaxConcurrent     int           // Maximum concurrent node upgrades (respects etcd quorum for CP)
+	Preserve          bool          // Preserve ephemeral data during upgrade
+	Stage             bool          // Stage upgrade and reboot later
+	WaitBetween       time.Duration // Wait duration between node upgrades
+	DryRun            bool          // Simulate the upgrade without executing
+	UpdateSecrets     bool          // Update Vault secrets after successful upgrade
+}
+
+// UpgradeResult contains the outcome of an upgrade operation.
+type UpgradeResult struct {
+	NodesUpgraded  []string         // Names of successfully upgraded nodes
+	NodesFailed    []UpgradeFailure // Details of failed node upgrades
+	TotalDuration  time.Duration    // Total time taken for the upgrade
+	Version        string           // Target version that was upgraded to
+	SecretProvider string           // Secret provider used (e.g., "vault", "file", "none")
+	SecretsUpdated bool             // Whether secrets were updated
+}
+
+// UpgradeFailure captures details about a failed node upgrade.
+type UpgradeFailure struct {
+	NodeName string // Name of the node that failed to upgrade
+	Error    string // Error message describing the failure
+	Phase    string // Phase where failure occurred (e.g., "upgrade", "health-check", "rejoin")
+}
+
+// ImageDiscovery provides methods for discovering OS images for upgrades.
+type ImageDiscovery interface {
+	// DiscoverImage finds the OS image for a specific version and region.
+	DiscoverImage(ctx context.Context, version string, region string) (imageID string, err error)
+	// GetInstallerImage returns the full installer image reference for the version.
+	GetInstallerImage(version string) (installerImage string)
+}
+
+// SecretManager handles reading and writing cluster configuration secrets.
+type SecretManager interface {
+	// GetClusterSecret retrieves the secret for a cluster role.
+	GetClusterSecret(ctx context.Context, clusterName string, role string) (secret ClusterSecret, err error)
+	// UpdateClusterSecret updates the secret with new values.
+	UpdateClusterSecret(ctx context.Context, secret ClusterSecret) (err error)
+	// UpdateVersionInfo updates only the version-related fields in the secret.
+	UpdateVersionInfo(ctx context.Context, clusterName string, role string, imageID string, version string) (err error)
+}
+
+// ClusterSecret represents configuration stored in a secret backend.
+type ClusterSecret struct {
+	ClusterName        string            // Name of the cluster
+	Role               string            // Node role ("controlplane" or "worker")
+	ConfigYAML         string            // Talos machine configuration
+	PatchYAML          string            // Configuration patches
+	ImageID            string            // Cloud provider image ID (e.g., AMI for AWS)
+	InstallerVersion   string            // Talos installer version
+	CloudProviderExtra map[string]string // Additional cloud-provider-specific config
 }
 
 type ClusterInfo struct {

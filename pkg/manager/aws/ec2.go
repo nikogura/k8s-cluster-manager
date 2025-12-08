@@ -323,6 +323,31 @@ func (am *AWSClusterManager) GetNodeById(id string) (nodeInfo manager.NodeInfo, 
 	return nodeInfo, err
 }
 
+// GetEC2InstancesByNodeID retrieves EC2 instance details by instance ID.
+func (am *AWSClusterManager) GetEC2InstancesByNodeID(nodeID string) (instances []types.Instance, err error) {
+	input := &ec2.DescribeInstancesInput{
+		InstanceIds: []string{nodeID},
+	}
+
+	output, descErr := am.Ec2Client.DescribeInstances(am.Context, input)
+	if descErr != nil {
+		err = errors.Wrapf(descErr, "failed to describe instance %s", nodeID)
+		return instances, err
+	}
+
+	if len(output.Reservations) == 0 {
+		err = fmt.Errorf("no instance found with ID %s", nodeID)
+		return instances, err
+	}
+
+	// Collect all instances from reservations
+	for _, reservation := range output.Reservations {
+		instances = append(instances, reservation.Instances...)
+	}
+
+	return instances, err
+}
+
 func (am *AWSClusterManager) GetNodes(clusterName string) (nodeInfo []manager.NodeInfo, err error) {
 	nodeInfo = make([]manager.NodeInfo, 0)
 
