@@ -36,8 +36,8 @@ func UpgradeNode(ctx context.Context, node manager.ClusterNode, installerImage s
 
 	manager.VerboseOutput(verbose, "Sending upgrade request to %s\n", node.Name())
 
-	// Execute upgrade - the Upgrade method takes individual parameters, not a struct
-	_, upgradeErr := tClient.Upgrade(ctx, installerImage, preserve, stage, false)
+	// Execute upgrade - Talos v1.11.3 signature: Upgrade(ctx, image, preserve, stage, ...grpc.CallOption)
+	_, upgradeErr := tClient.Upgrade(ctx, installerImage, preserve, stage)
 	if upgradeErr != nil {
 		err = errors.Wrapf(upgradeErr, "failed upgrading node %s to %s", node.Name(), installerImage)
 		return err
